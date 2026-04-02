@@ -1,0 +1,16 @@
+{
+  "name": "campusapp",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "api",
+    "shared"
+  ],
+  "scripts": {
+    "mobile": "npm run start --workspace=mobile",
+    "api": "npm run dev --workspace=api",
+    "api:migrate": "npm run migrate --workspace=api",
+    "api:seed": "npm run seed --workspace=api"
+  }
+}

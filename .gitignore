@@ -1,19 +1,48 @@
-# 1. Dependency Folders
+# Dependencies
 node_modules/
-server/node_modules/
 
+# Expo
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Native builds
+ios/
+android/
+
+# Database
+*.db
+*.db-journal
+
+# Environment
 .env
 .env.local
+.env.*.local
 
-# 2. IDE and OS Files
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# 4. Logs
+# Build output
+api/dist/
+shared/dist/
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# 5. Build Folders
-dist/
-build/
+api/campusapp.db-wal
+api/campusapp.db-shm
