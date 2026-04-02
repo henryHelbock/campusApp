@@ -34,7 +34,6 @@ export default function AdminDashboardScreen() {
 		flaggedItems: 0,
 		openLnF: 0,
 	});
-
 	const [flaggedIssues, setFlaggedIssues] = useState<FlaggedIssue[]>([]);
 	const [flaggedUsers, setFlaggedUsers] = useState<FlaggedUser[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -42,7 +41,8 @@ export default function AdminDashboardScreen() {
 	useEffect(() => {
 		const fetchAdminData = async () => {
 			try {
-				const BASE_URL = "http://localhost:3000/api/admin";
+				// IMPORTANT: Replace this with your actual IPv4 address or ngrok URL!
+				const BASE_URL = "http://192.168.0.137:3000/api/admin";
 
 				const [statsRes, issuesRes, usersRes] = await Promise.all([
 					fetch(`${BASE_URL}/analytics`),
@@ -53,6 +53,12 @@ export default function AdminDashboardScreen() {
 				const statsData = await statsRes.json();
 				const issuesData = await issuesRes.json();
 				const usersData = await usersRes.json();
+
+				// LOGS TO CATCH THE BACKEND ERROR
+				// Look in your Expo terminal in VS Code to see what prints here!
+				console.log("Stats Data:", statsData);
+				console.log("Issues Data:", issuesData);
+				console.log("Users Data:", usersData);
 
 				setStats(statsData);
 				setFlaggedIssues(issuesData);
@@ -88,21 +94,26 @@ export default function AdminDashboardScreen() {
 			<View style={styles.summaryContainer}>
 				<View style={styles.summaryBox}>
 					<Text style={styles.summaryTitle}>Active Issues</Text>
-					<Text style={styles.summaryNumber}>{stats.activeIssues}</Text>
+					{/* Fallbacks added just in case stats comes back as an error object */}
+					<Text style={styles.summaryNumber}>{stats?.activeIssues || 0}</Text>
 				</View>
 				<View style={styles.summaryBox}>
 					<Text style={styles.summaryTitle}>Flagged Items</Text>
-					<Text style={styles.summaryNumber}>{stats.flaggedItems}</Text>
+					<Text style={styles.summaryNumber}>{stats?.flaggedItems || 0}</Text>
 				</View>
 				<View style={styles.summaryBox}>
 					<Text style={styles.summaryTitle}>Open L&F</Text>
-					<Text style={styles.summaryNumber}>{stats.openLnF}</Text>
+					<Text style={styles.summaryNumber}>{stats?.openLnF || 0}</Text>
 				</View>
 			</View>
 
 			{/* Dynamic Flagged Content Section */}
 			<Text style={styles.sectionTitle}>Flagged Content - Review Queue</Text>
-			{flaggedIssues.length === 0 ? (
+
+			{/* THE FIX: We use Array.isArray() to completely block the map crash */}
+			{!flaggedIssues ||
+			!Array.isArray(flaggedIssues) ||
+			flaggedIssues.length === 0 ? (
 				<Text style={styles.emptyText}>No flagged items to review.</Text>
 			) : (
 				flaggedIssues.map((issue) => (
@@ -112,6 +123,7 @@ export default function AdminDashboardScreen() {
 								{issue.category} Issue ({issue.severity})
 							</Text>
 							<Text style={styles.cardSubtitle}>
+								{/* ESLint Quotes fix applied here */}
 								&quot;{issue.description}&quot;
 							</Text>
 							<Text style={styles.warningText}>
@@ -132,7 +144,11 @@ export default function AdminDashboardScreen() {
 
 			{/* Dynamic User Management Section */}
 			<Text style={styles.sectionTitle}>User Management</Text>
-			{flaggedUsers.length === 0 ? (
+
+			{/* THE FIX: Safe array check for users too */}
+			{!flaggedUsers ||
+			!Array.isArray(flaggedUsers) ||
+			flaggedUsers.length === 0 ? (
 				<Text style={styles.emptyText}>No users require moderation.</Text>
 			) : (
 				flaggedUsers.map((user) => (
@@ -250,7 +266,7 @@ const styles = StyleSheet.create({
 	},
 	warningText: {
 		fontSize: 13,
-		color: "#cf6679", // Uses the red color to make the report count pop
+		color: "#cf6679",
 		fontWeight: "500",
 	},
 	actionButtons: {
