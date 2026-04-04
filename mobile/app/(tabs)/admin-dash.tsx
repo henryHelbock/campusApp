@@ -38,12 +38,47 @@ export default function AdminDashboardScreen() {
 	const [flaggedUsers, setFlaggedUsers] = useState<FlaggedUser[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 
+	const BASE_URL = "http://localhost:3000/api/admin";
+
+	const handleRemoveIssue = async (issueId: number) => {
+		try {
+			const response = await fetch(`${BASE_URL}/issues/${issueId}`, {
+				method: "DELETE",
+			});
+
+			if (response.ok) {
+				setFlaggedIssues((prevIssues) =>
+					prevIssues.filter((issue) => issue.id !== issueId),
+				);
+			} else {
+				console.error("Backend refused to delete the issue.");
+			}
+		} catch (error) {
+			console.error("Network error when trying to delete:", error);
+		}
+	};
+
+	const handleKeepIssue = async (issueId: number) => {
+		try {
+			const response = await fetch(`${BASE_URL}/issues/${issueId}/dismiss`, {
+				method: "PATCH",
+			});
+
+			if (response.ok) {
+				setFlaggedIssues((prevIssues) =>
+					prevIssues.filter((issue) => issue.id !== issueId),
+				);
+			} else {
+				console.error("Backend refused to dismiss the flag.");
+			}
+		} catch (error) {
+			console.error("Network error when trying to keep:", error);
+		}
+	};
+
 	useEffect(() => {
 		const fetchAdminData = async () => {
 			try {
-				// IMPORTANT: Replace this with your actual IPv4 address or ngrok URL!
-				const BASE_URL = "http://localhost:3000/api/admin";
-
 				const [statsRes, issuesRes, usersRes] = await Promise.all([
 					fetch(`${BASE_URL}/analytics`),
 					fetch(`${BASE_URL}/moderation-queue`),
@@ -54,8 +89,6 @@ export default function AdminDashboardScreen() {
 				const issuesData = await issuesRes.json();
 				const usersData = await usersRes.json();
 
-				// LOGS TO CATCH THE BACKEND ERROR
-				// Look in your Expo terminal in VS Code to see what prints here!
 				console.log("Stats Data:", statsData);
 				console.log("Issues Data:", issuesData);
 				console.log("Users Data:", usersData);
@@ -84,17 +117,14 @@ export default function AdminDashboardScreen() {
 
 	return (
 		<ScrollView style={styles.container}>
-			{/* Header */}
 			<View style={styles.header}>
 				<Text style={styles.headerTitle}>Admin Dashboard</Text>
 				<Text style={styles.headerRole}>Admin</Text>
 			</View>
 
-			{/* Dynamic Summary Boxes */}
 			<View style={styles.summaryContainer}>
 				<View style={styles.summaryBox}>
 					<Text style={styles.summaryTitle}>Active Issues</Text>
-					{/* Fallbacks added just in case stats comes back as an error object */}
 					<Text style={styles.summaryNumber}>{stats?.activeIssues || 0}</Text>
 				</View>
 				<View style={styles.summaryBox}>
@@ -107,10 +137,8 @@ export default function AdminDashboardScreen() {
 				</View>
 			</View>
 
-			{/* Dynamic Flagged Content Section */}
 			<Text style={styles.sectionTitle}>Flagged Content - Review Queue</Text>
 
-			{/* THE FIX: We use Array.isArray() to completely block the map crash */}
 			{!flaggedIssues ||
 			!Array.isArray(flaggedIssues) ||
 			flaggedIssues.length === 0 ? (
@@ -123,7 +151,6 @@ export default function AdminDashboardScreen() {
 								{issue.category} Issue ({issue.severity})
 							</Text>
 							<Text style={styles.cardSubtitle}>
-								{/* ESLint Quotes fix applied here */}
 								&quot;{issue.description}&quot;
 							</Text>
 							<Text style={styles.warningText}>
@@ -131,10 +158,16 @@ export default function AdminDashboardScreen() {
 							</Text>
 						</View>
 						<View style={styles.actionButtons}>
-							<TouchableOpacity style={styles.buttonPrimary}>
+							<TouchableOpacity
+								style={styles.buttonPrimary}
+								onPress={() => handleKeepIssue(issue.id)}
+							>
 								<Text style={styles.buttonText}>Keep</Text>
 							</TouchableOpacity>
-							<TouchableOpacity style={styles.buttonDanger}>
+							<TouchableOpacity
+								style={styles.buttonDanger}
+								onPress={() => handleRemoveIssue(issue.id)}
+							>
 								<Text style={styles.buttonTextDanger}>Remove</Text>
 							</TouchableOpacity>
 						</View>
@@ -142,10 +175,8 @@ export default function AdminDashboardScreen() {
 				))
 			)}
 
-			{/* Dynamic User Management Section */}
 			<Text style={styles.sectionTitle}>User Management</Text>
 
-			{/* THE FIX: Safe array check for users too */}
 			{!flaggedUsers ||
 			!Array.isArray(flaggedUsers) ||
 			flaggedUsers.length === 0 ? (

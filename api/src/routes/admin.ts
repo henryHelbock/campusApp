@@ -35,6 +35,28 @@ adminRouter.delete("/issues/:id", (req, res) => {
 	}
 });
 
+//PATCH /api/admin/issues/:id/dismiss
+adminRouter.patch("/issues/:id/dismiss", (req, res) => {
+	try {
+		const db = getDatabase();
+		const issueId = req.params.id;
+
+		// Reset report count to 0 to drop it out of the flagged queue
+		const sql = "UPDATE issues SET report_count = 0 WHERE id = ?";
+
+		const result = db.prepare(sql).run(issueId);
+
+		// Optional safety check: If no rows were changed, the ID doesn't exist
+		if (result.changes === 0) {
+			return res.status(404).json({ error: "Issue not found." });
+		}
+
+		res.json({ message: `Issue ${issueId} dismissed and kept.` });
+	} catch (error: any) {
+		res.status(500).json({ error: error.message });
+	}
+});
+
 // GET /api/admin/lost-found - List all lost/found threads
 adminRouter.get("/lost-found", (_req, res) => {
 	res.status(501).json({ message: "Not implemented: admin list lost/found" });
