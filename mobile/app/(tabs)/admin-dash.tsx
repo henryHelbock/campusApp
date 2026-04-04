@@ -53,7 +53,7 @@ export default function AdminDashboardScreen() {
 	const [selectedUserEmail, setSelectedUserEmail] = useState("");
 
 	// IMPORTANT: Replace this with your actual IPv4 address or ngrok URL when testing on a physical device!
-	const BASE_URL = "http://137.141.156.75:3000/api/admin";
+	const BASE_URL = "http://localhost:3000/api/admin";
 
 	// --- ISSUE ACTIONS ---
 	const handleRemoveIssue = async (issueId: number) => {
