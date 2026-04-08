@@ -17,17 +17,17 @@ import {
   SEVERITY_LEVELS,
 } from '@campusapp/shared';
 import type { Issue, IssueCategory, IssueSeverity, LostFoundItem } from '@campusapp/shared';
-import { issuesApi, lostFoundApi } from '../../services/api';
+import { issuesApi, lostFoundApi } from '../../src/services/api';
 
 // ── Demo data (used until backend is connected) ───────────────
 const DEMO_ISSUES: Issue[] = [
-  { id:1, category:'Road',     severity:'Severe', description:'Icy walkway near Milne Library',    latitude:42.468010,  longitude:-75.062851, reportCount:3, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
-  { id:2, category:'Water',    severity:'Mild',   description:'Drinking fountain not working IRC', latitude:42.469277, longitude:-75.063021, reportCount:1, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
-  { id:3, category:'Building', severity:'Large',  description:'Heating issue in Fitzelle Hall',    latitude:42.469995, longitude:-75.062918, reportCount:2, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
+  { id:1, category:'Road',     severity:'Severe', description:'Icy walkway near Milne Library',    latitude:42.454,  longitude:-75.0635, reportCount:3, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
+  { id:2, category:'Water',    severity:'Mild',   description:'Drinking fountain not working IRC', latitude:42.4528, longitude:-75.0645, reportCount:1, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
+  { id:3, category:'Building', severity:'Large',  description:'Heating issue in Fitzelle Hall',    latitude:42.4537, longitude:-75.0655, reportCount:2, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
 ];
 
 const DEMO_LOST: LostFoundItem[] = [
-  { id:1, type:'lost', title:'Black AirPods Case', description:'Lost near Milne Library entrance', category:'Electronics', latitude:42.4685, longitude:-75.0630, imageUrls:[], status:'active', reporterId:2, createdAt:'' },
+  { id:1, type:'lost', title:'Black AirPods Case', description:'Lost near Milne Library entrance', category:'Electronics', latitude:42.467872, longitude:-75.062636, imageUrls:[], status:'active', reporterId:2, createdAt:'' },
 ];
 
 // Bubble radius scales with report count
@@ -112,27 +112,28 @@ export default function CampusMap() {
         showsUserLocation
         showsCompass
         showsScale
-        onPress={(e) => {
-          const { latitude, longitude } = e.nativeEvent.coordinate;
-          const tapped = filteredIssues.find(issue => {
-            const latDiff = Math.abs(issue.latitude - latitude);
-            const lngDiff = Math.abs(issue.longitude - longitude);
-            return latDiff < 0.0005 && lngDiff < 0.0005;
-          });
-          if (tapped) setSelectedIssue(tapped);
-          else setSelectedIssue(null);
-        }}
       >
-        {/* Heatmap bubbles — no Marker, just Circle */}
+        {/* Heatmap bubbles */}
         {showHeatmap && filteredIssues.map(issue => (
-          <Circle
+          <Marker
             key={`issue-${issue.id}`}
-            center={{ latitude: issue.latitude, longitude: issue.longitude }}
-            radius={bubbleRadius(issue.reportCount)}
-            fillColor={SEVERITY_COLORS[issue.severity] + 'AA'}
-            strokeColor={SEVERITY_COLORS[issue.severity]}
-            strokeWidth={1.5}
-          />
+            coordinate={{
+              latitude: issue.latitude,
+              longitude: issue.longitude,
+            }}
+            onPress={() => setSelectedIssue(issue)}
+          >
+            <Circle
+              center={{
+                latitude: issue.latitude,
+                longitude: issue.longitude,
+              }}
+              radius={bubbleRadius(issue.reportCount)}
+              fillColor={SEVERITY_COLORS[issue.severity] + 'AA'}
+              strokeColor={SEVERITY_COLORS[issue.severity]}
+              strokeWidth={1.5}
+            />
+          </Marker>
         ))}
 
         {/* Lost item pins */}

@@ -3,13 +3,13 @@
  * Used for map initialization and coordinate validation.
  */
 export const CAMPUS_CENTER = {
-  latitude: 42.4534,
-  longitude: -75.0640,
+  latitude: 42.4690,
+  longitude: -75.0629,
 };
 
 export const CAMPUS_BOUNDS = {
-  north: 42.4600,
-  south: 42.4470,
+  north: 42.4750,
+  south: 42.4630,
   east: -75.0550,
   west: -75.0730,
 };
