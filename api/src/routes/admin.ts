@@ -21,15 +21,37 @@ adminRouter.patch("/issues/:id/severity", (_req, res) => {
 });
 
 // DELETE /api/admin/issues/:id - Remove inappropriate issue
-adminRouter.delete("/issues/:id", (req, res) => {
+adminRouter.delete("/issues/:id", (_req, res) => {
 	try {
 		const db = getDatabase();
-		const issueId = req.params.id;
+		const issueId = _req.params.id;
 		const sql = "UPDATE issues SET status = 'archived' WHERE id = ?";
 
 		db.prepare(sql).run(issueId);
 
 		res.json({ message: `Issue ${issueId} has been archived.` });
+	} catch (error: any) {
+		res.status(500).json({ error: error.message });
+	}
+});
+
+//PATCH /api/admin/issues/:id/dismiss
+adminRouter.patch("/issues/:id/dismiss", (_req, res) => {
+	try {
+		const db = getDatabase();
+		const issueId = _req.params.id;
+
+		// Reset report count to 0 to drop it out of the flagged queue
+		const sql = "UPDATE issues SET report_count = 0 WHERE id = ?";
+
+		const result = db.prepare(sql).run(issueId);
+
+		// Optional safety check: If no rows were changed, the ID doesn't exist
+		if (result.changes === 0) {
+			return res.status(404).json({ error: "Issue not found." });
+		}
+
+		res.json({ message: `Issue ${issueId} dismissed and kept.` });
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
 	}
@@ -60,10 +82,10 @@ adminRouter.get("/users", (_req, res) => {
 });
 
 // PATCH /api/admin/users/:id/suspend - Suspend user account
-adminRouter.patch("/users/:id/suspend", (req, res) => {
+adminRouter.patch("/users/:id/suspend", (_req, res) => {
 	try {
 		const db = getDatabase();
-		const userId = req.params.id;
+		const userId = _req.params.id;
 		const sql = "UPDATE users SET status = 'suspended' WHERE id = ?";
 
 		db.prepare(sql).run(userId);
@@ -73,10 +95,37 @@ adminRouter.patch("/users/:id/suspend", (req, res) => {
 	}
 });
 
-// PATCH /api/admin/users/:id/ban - Ban user account
+// PATCH /api/admin/users/:id/ban - Ban user account AND delete their content
 adminRouter.patch("/users/:id/ban", (_req, res) => {
-	// TODO: Set user status to banned, log action
-	res.status(501).json({ message: "Not implemented: ban user" });
+	try {
+		const db = getDatabase();
+		const userId = _req.params.id;
+
+		db.prepare("UPDATE users SET status = 'banned' WHERE id = ?").run(userId);
+
+		db.prepare("DELETE FROM issues WHERE reporter_id = ?").run(userId);
+
+		db.prepare("DELETE FROM lost_found_items WHERE reporter_id = ?").run(
+			userId,
+		);
+
+		res.json({
+			message: `User ${userId} banned and all their content was permanently deleted.`,
+		});
+	} catch (error: any) {
+		res.status(500).json({ error: error.message });
+	}
+});
+
+adminRouter.patch("/users/:id/reactivate", (_req, res) => {
+	try {
+		const db = getDatabase();
+		const userId = _req.params.id;
+		db.prepare("UPDATE users SET status = 'active' WHERE id = ?").run(userId);
+		res.json({ message: `User ${userId} reactivated.` });
+	} catch (error: any) {
+		res.status(500).json({ error: error.message });
+	}
 });
 
 // GET /api/admin/audit-log - View audit trail
@@ -112,6 +161,27 @@ adminRouter.get("/analytics", (_req, res) => {
 
 		const row = db.prepare(sql).get();
 		res.json(row);
+	} catch (error: any) {
+		res.status(500).json({ error: error.message });
+	}
+});
+
+adminRouter.get("/users/:id/history", (_req, res) => {
+	try {
+		const db = getDatabase();
+		const userId = _req.params.id;
+		const sql = `
+			SELECT id, 'issue' AS record_type, category AS title, severity, description, status, created_at
+			FROM issues
+			WHERE reporter_id = ?
+			UNION ALL
+			SELECT id, 'lost_found' AS record_type, title, NULL AS severity, description, status, created_at
+			FROM lost_found_items
+			WHERE reporter_id = ?
+			ORDER BY created_at DESC
+		`;
+		const history = db.prepare(sql).all(userId, userId);
+		res.json(history);
 	} catch (error: any) {
 		res.status(500).json({ error: error.message });
 	}
