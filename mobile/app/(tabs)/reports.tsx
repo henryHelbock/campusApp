@@ -1,27 +1,189 @@
-import { StyleSheet, View, Text } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import {
+  ISSUE_CATEGORIES,
+  SEVERITY_LEVELS,
+  SEVERITY_COLORS,
+} from '@campusapp/shared';
+import type { Issue, IssueCategory, IssueSeverity } from '@campusapp/shared';
+import { issuesApi } from '../../src/services/api';
+
+// ── Demo data ─────────────────────────────────────────────────
+const DEMO_ISSUES: Issue[] = [
+  { id:1, category:'Road',     severity:'Severe', description:'Icy walkway near Milne Library',    latitude:42.454,  longitude:-75.0635, reportCount:3, status:'active', reporterId:2, createdAt:'2024-03-10T14:30:00', updatedAt:'' },
+  { id:2, category:'Water',    severity:'Mild',   description:'Drinking fountain not working IRC', latitude:42.4528, longitude:-75.0645, reportCount:1, status:'active', reporterId:2, createdAt:'2024-03-09T10:00:00', updatedAt:'' },
+  { id:3, category:'Building', severity:'Large',  description:'Heating issue in Fitzelle Hall',    latitude:42.4537, longitude:-75.0655, reportCount:2, status:'active', reporterId:2, createdAt:'2024-03-08T08:00:00', updatedAt:'' },
+];
+
+function timeAgo(dateStr: string): string {
+  const diff  = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1)  return 'Just now';
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function IssueCard({ issue }: { issue: Issue }) {
+  const color = SEVERITY_COLORS[issue.severity];
+  return (
+    <View style={[styles.card, { borderLeftColor: color }]}>
+      <View style={styles.cardTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardCategory}>{issue.category}</Text>
+          <Text style={styles.cardDesc} numberOfLines={2}>{issue.description}</Text>
+        </View>
+        <View style={[styles.sevBadge, { backgroundColor: color + '22', borderColor: color }]}>
+          <Text style={[styles.sevBadgeText, { color }]}>{issue.severity}</Text>
+        </View>
+      </View>
+      <View style={styles.cardMeta}>
+        <Text style={styles.metaText}>📊 {issue.reportCount} report{issue.reportCount !== 1 ? 's' : ''}</Text>
+        <Text style={styles.metaText}>🕒 {timeAgo(issue.createdAt)}</Text>
+        <View style={[styles.statusBadge, issue.status === 'active' ? styles.statusActive : styles.statusFixed]}>
+          <Text style={styles.statusText}>{issue.status}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function ReportsScreen() {
+  const router  = useRouter();
+  const [issues,   setIssues]   = useState<Issue[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [catFilter,  setCatFilter]  = useState<IssueCategory | 'All'>('All');
+  const [sevFilter,  setSevFilter]  = useState<IssueSeverity | 'All'>('All');
+
+  const fetchIssues = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await issuesApi.getAll();
+      setIssues(data);
+    } catch {
+      setIssues(DEMO_ISSUES);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchIssues(); }, [fetchIssues]);
+
+  const filtered = issues.filter(i => {
+    if (i.status === 'archived') return false;
+    if (catFilter !== 'All' && i.category !== catFilter) return false;
+    if (sevFilter !== 'All' && i.severity !== sevFilter) return false;
+    return true;
+  });
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Reports</Text>
-      <Text style={styles.subtitle}>View all campus issue reports</Text>
+
+      {/* Category filter */}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Category</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {(['All', ...ISSUE_CATEGORIES] as (IssueCategory | 'All')[]).map(cat => (
+            <TouchableOpacity
+              key={cat}
+              style={[styles.chip, catFilter === cat && styles.chipActive]}
+              onPress={() => setCatFilter(cat)}
+            >
+              <Text style={[styles.chipText, catFilter === cat && styles.chipTextActive]}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Severity filter */}
+      <View style={styles.filterSection}>
+        <Text style={styles.filterLabel}>Severity</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+          {(['All', ...SEVERITY_LEVELS] as (IssueSeverity | 'All')[]).map(sev => (
+            <TouchableOpacity
+              key={sev}
+              style={[
+                styles.chip,
+                sevFilter === sev && sev !== 'All'
+                  ? { backgroundColor: SEVERITY_COLORS[sev as IssueSeverity], borderColor: SEVERITY_COLORS[sev as IssueSeverity] }
+                  : sevFilter === sev
+                  ? styles.chipActive
+                  : {}
+              ]}
+              onPress={() => setSevFilter(sev)}
+            >
+              <Text style={[styles.chipText, sevFilter === sev && styles.chipTextActive]}>{sev}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Count + refresh */}
+      <View style={styles.countRow}>
+        <Text style={styles.countText}>{filtered.length} active report{filtered.length !== 1 ? 's' : ''}</Text>
+        <TouchableOpacity onPress={fetchIssues}>
+          <Text style={styles.refreshText}>↻ Refresh</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* List */}
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#1A5276" />
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={i => String(i.id)}
+          renderItem={({ item }) => <IssueCard issue={item} />}
+          contentContainerStyle={{ padding: 12, gap: 10 }}
+          ListEmptyComponent={<Text style={styles.empty}>No reports match your filters.</Text>}
+        />
+      )}
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/report/new')}
+      >
+        <Text style={styles.fabText}>+</Text>
+      </TouchableOpacity>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
+  container:       { flex: 1, backgroundColor: '#fff' },
+  filterSection:   { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  filterLabel:     { fontSize: 10, fontWeight: '600', color: '#888', textTransform: 'uppercase', marginBottom: 5 },
+  filterRow:       { gap: 6, paddingBottom: 6 },
+  chip:            { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#ccc', backgroundColor: '#fff' },
+  chipActive:      { backgroundColor: '#1A5276', borderColor: '#1A5276' },
+  chipText:        { fontSize: 11, color: '#555' },
+  chipTextActive:  { color: '#fff' },
+  countRow:        { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  countText:       { fontSize: 12, color: '#888' },
+  refreshText:     { fontSize: 12, color: '#1A5276', fontWeight: '600' },
+  empty:           { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 14 },
+  card:            { backgroundColor: '#fff', borderRadius: 10, padding: 13, borderWidth: 1, borderColor: '#e0e0e0', borderLeftWidth: 4 },
+  cardTop:         { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  cardCategory:    { fontSize: 13, fontWeight: '600', color: '#1A3D5C', marginBottom: 3 },
+  cardDesc:        { fontSize: 12, color: '#555', lineHeight: 17 },
+  sevBadge:        { borderRadius: 6, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
+  sevBadgeText:    { fontSize: 11, fontWeight: '600' },
+  cardMeta:        { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  metaText:        { fontSize: 11, color: '#999' },
+  statusBadge:     { borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  statusActive:    { backgroundColor: '#D5F5E3' },
+  statusFixed:     { backgroundColor: '#EAECEE' },
+  statusText:      { fontSize: 10, fontWeight: '600', color: '#555' },
+  fab:             { position: 'absolute', bottom: 24, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: '#1A5276', justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  fabText:         { color: '#fff', fontSize: 28, lineHeight: 30 },
 });
