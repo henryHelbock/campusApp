@@ -8,6 +8,7 @@ import {
 	ActivityIndicator,
 	Modal,
 } from "react-native";
+import { API_BASE } from "../../src/services/api";
 
 interface DashboardStats {
 	activeIssues: number;
@@ -49,13 +50,13 @@ export default function AdminDashboardScreen() {
 	const [flaggedIssues, setFlaggedIssues] = useState<FlaggedIssue[]>([]);
 	const [flaggedUsers, setFlaggedUsers] = useState<FlaggedUser[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
+	const [connectionError, setConnectionError] = useState(false);
 	const [isModalVisible, setIsModalVisible] = useState(false);
 	const [userHistory, setUserHistory] = useState<HistoryItem[]>([]);
 	const [historyLoading, setHistoryLoading] = useState(false);
 	const [selectedUserEmail, setSelectedUserEmail] = useState("");
 
-	// IMPORTANT: Replace this with your actual IPv4 address or ngrok URL when testing on a physical device!
-	const BASE_URL = "http://localhost:3000/api/admin";
+	const BASE_URL = `${API_BASE}/admin`;
 
 	// --- ISSUE ACTIONS ---
 	const handleRemoveIssue = async (issueId: number) => {
@@ -196,6 +197,7 @@ export default function AdminDashboardScreen() {
 				setFlaggedUsers(usersData);
 			} catch (error) {
 				console.error("❌ Failed to fetch admin data:", error);
+				setConnectionError(true);
 			} finally {
 				setIsLoading(false);
 			}
@@ -220,6 +222,14 @@ export default function AdminDashboardScreen() {
 				<Text style={styles.headerTitle}>Admin Dashboard</Text>
 				<Text style={styles.headerRole}>Admin</Text>
 			</View>
+
+			{connectionError && (
+				<View style={styles.errorBanner}>
+					<Text style={styles.errorText}>
+						Could not connect to the server at {BASE_URL}. Make sure the API is running and your device is on the same network.
+					</Text>
+				</View>
+			)}
 
 			{/* Summary Boxes */}
 			<View style={styles.summaryContainer}>
@@ -442,6 +452,18 @@ const styles = StyleSheet.create({
 	loadingText: {
 		color: "#aaaaaa",
 		marginTop: 12,
+	},
+	errorBanner: {
+		backgroundColor: "#4a1c1c",
+		borderWidth: 1,
+		borderColor: "#cf6679",
+		borderRadius: 8,
+		padding: 12,
+		marginBottom: 16,
+	},
+	errorText: {
+		color: "#cf6679",
+		fontSize: 13,
 	},
 	emptyText: {
 		color: "#666666",

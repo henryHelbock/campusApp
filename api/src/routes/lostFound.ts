@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, requireAuth } from '../middleware/auth';
 import { validateCampusBounds } from '../middleware/validateCampusBounds';
+import { getDatabase } from '../db/database';
 
 export const lostFoundRouter = Router();
 
@@ -8,8 +9,37 @@ lostFoundRouter.use(authenticate);
 
 // GET /api/lost-found - List lost and found items
 lostFoundRouter.get('/', (_req, res) => {
-  // TODO: Query with filters (type, category, status, date)
-  res.status(501).json({ message: 'Not implemented: list lost/found items' });
+  try {
+    const db = getDatabase();
+    const items = db.prepare(`
+      SELECT
+        id,
+        type,
+        title,
+        description,
+        category,
+        latitude,
+        longitude,
+        reporter_id AS reporterId,
+        status,
+        created_at AS createdAt
+      FROM lost_found_items
+      WHERE status = 'active'
+      ORDER BY created_at DESC
+    `).all();
+
+    // Attach image URLs for each item
+    const imgStmt = db.prepare('SELECT image_url FROM item_images WHERE item_id = ?');
+    const result = items.map((item: any) => ({
+      ...item,
+      imageUrls: imgStmt.all(item.id).map((row: any) => row.image_url),
+    }));
+
+    res.json(result);
+  } catch (error) {
+    console.error('Database error fetching lost/found items:', error);
+    res.status(500).json({ message: 'Internal server error while fetching lost/found items' });
+  }
 });
 
 // POST /api/lost-found - Create a lost or found item report

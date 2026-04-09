@@ -14,14 +14,18 @@ issuesRouter.get("/", (_req, res) => {
 		const issues = db
 			.prepare(
 				`
-        SELECT 
-            id, 
-            category, 
-            severity, 
-            description, 
-            latitude, 
-            longitude, 
-            report_count
+        SELECT
+            id,
+            category,
+            severity,
+            description,
+            latitude,
+            longitude,
+            report_count AS reportCount,
+            reporter_id AS reporterId,
+            status,
+            created_at AS createdAt,
+            updated_at AS updatedAt
         FROM issues
     `,
 			)

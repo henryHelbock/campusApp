@@ -7,8 +7,22 @@ import type {
 	LostFoundItem,
 	CreateLostFoundRequest,
 } from '@campusapp/shared';
+import Constants from 'expo-constants';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/api';
+// Auto-detect the dev server IP so physical devices can reach the backend.
+// Expo Go sets hostUri to "192.168.x.x:8081" — we extract the IP and use port 3000.
+// Override with EXPO_PUBLIC_API_URL env var if needed.
+function getApiBase(): string {
+	if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+	const hostUri = Constants.expoConfig?.hostUri; // e.g. "192.168.1.42:8081"
+	if (hostUri) {
+		const ip = hostUri.split(':')[0];
+		return `http://${ip}:3000/api`;
+	}
+	return 'http://localhost:3000/api';
+}
+
+export const API_BASE = getApiBase();
 
 let authToken: string | null = null;
 
