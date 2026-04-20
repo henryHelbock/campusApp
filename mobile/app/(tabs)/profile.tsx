@@ -37,10 +37,15 @@ export default function ProfileScreen() {
 					const data = await response.json();
 					setProfile(data);
 				} else {
-					console.error("Failed to load profile data");
+					// THIS IS THE MAGIC: Grab the actual error from the backend
+					const errorText = await response.text();
+					Alert.alert(
+						"Backend Error",
+						`Status ${response.status}: ${errorText}`,
+					);
 				}
-			} catch (error) {
-				console.error("Network error fetching profile:", error);
+			} catch (error: any) {
+				Alert.alert("Network Error", error.message);
 			} finally {
 				setIsLoading(false);
 			}

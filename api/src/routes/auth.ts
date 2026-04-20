@@ -2,7 +2,7 @@ import { Router } from "express";
 import bcrypt from "bcrypt";
 import { getDatabase } from "../db/database";
 import jwt from "jsonwebtoken";
-import { requireAuth } from "../middleware/auth";
+import { authenticate, requireAuth } from "../middleware/auth";
 
 export const authRouter = Router();
 
@@ -135,7 +135,7 @@ authRouter.post("/refresh", (_req, res) => {
 });
 
 // GET /api/auth/me - Fetch current user's profile and stats
-authRouter.get("/me", requireAuth, (req, res) => {
+authRouter.get("/me", authenticate, requireAuth, (req, res) => {
 	try {
 		const db = getDatabase();
 		const userId = (req as any).user.id;
