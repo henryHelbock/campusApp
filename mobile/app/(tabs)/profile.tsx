@@ -1,13 +1,90 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
 	StyleSheet,
 	View,
 	Text,
 	TouchableOpacity,
 	ScrollView,
+	ActivityIndicator,
+	Alert,
 } from "react-native";
+import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { API_BASE, setAuthToken } from "../../src/services/api";
+
+interface UserProfile {
+	email: string;
+	totalReports: number;
+	resolvedReports: number;
+}
 
 export default function ProfileScreen() {
+	const router = useRouter();
+	const [profile, setProfile] = useState<UserProfile | null>(null);
+	const [isLoading, setIsLoading] = useState(true);
+
+	useEffect(() => {
+		const fetchProfile = async () => {
+			try {
+				const token = await SecureStore.getItemAsync("auth_token");
+				const response = await fetch(`${API_BASE}/auth/me`, {
+					headers: {
+						Authorization: `Bearer ${token}`,
+					},
+				});
+
+				if (response.ok) {
+					const data = await response.json();
+					setProfile(data);
+				} else {
+					console.error("Failed to load profile data");
+				}
+			} catch (error) {
+				console.error("Network error fetching profile:", error);
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		fetchProfile();
+	}, []);
+
+	const handleLogout = async () => {
+		Alert.alert("Log Out", "Are you sure you want to log out?", [
+			{ text: "Cancel", style: "cancel" },
+			{
+				text: "Log Out",
+				style: "destructive",
+				onPress: async () => {
+					await SecureStore.deleteItemAsync("auth_token");
+					await SecureStore.deleteItemAsync("user_role");
+
+					setAuthToken("");
+
+					router.replace("/auth/login");
+				},
+			},
+		]);
+	};
+
+	if (isLoading) {
+		return (
+			<View
+				style={[
+					styles.container,
+					{ justifyContent: "center", alignItems: "center" },
+				]}
+			>
+				<ActivityIndicator size="large" color="#1A5276" />
+			</View>
+		);
+	}
+
+	// Safely generate display data from the database email
+	const email = profile?.email || "student@oneonta.edu";
+	const displayName = email.split("@")[0]; // "smithj1@oneonta.edu" -> "smithj1"
+	const initial = displayName.charAt(0).toUpperCase();
+
 	return (
 		<ScrollView
 			style={styles.container}
@@ -16,10 +93,10 @@ export default function ProfileScreen() {
 			{/* 1. Identity Header */}
 			<View style={styles.header}>
 				<View style={styles.avatarPlaceholder}>
-					<Text style={styles.avatarText}>AS</Text>
+					<Text style={styles.avatarText}>{initial}</Text>
 				</View>
-				<Text style={styles.userName}>Alex Student</Text>
-				<Text style={styles.userEmail}>student@oneonta.edu</Text>
+				<Text style={styles.userName}>{displayName}</Text>
+				<Text style={styles.userEmail}>{email}</Text>
 				<TouchableOpacity style={styles.editButton}>
 					<Text style={styles.editButtonText}>Edit Profile</Text>
 				</TouchableOpacity>
@@ -28,12 +105,12 @@ export default function ProfileScreen() {
 			{/* 2. Quick Stats Row */}
 			<View style={styles.statsContainer}>
 				<View style={styles.statBox}>
-					<Text style={styles.statNumber}>12</Text>
+					<Text style={styles.statNumber}>{profile?.totalReports || 0}</Text>
 					<Text style={styles.statLabel}>Reports</Text>
 				</View>
 				<View style={styles.statDivider} />
 				<View style={styles.statBox}>
-					<Text style={styles.statNumber}>3</Text>
+					<Text style={styles.statNumber}>{profile?.resolvedReports || 0}</Text>
 					<Text style={styles.statLabel}>Resolved</Text>
 				</View>
 			</View>
@@ -68,7 +145,7 @@ export default function ProfileScreen() {
 			</View>
 
 			{/* 4. Log Out Button */}
-			<TouchableOpacity style={styles.logoutButton}>
+			<TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
 				<Text style={styles.logoutButtonText}>Log Out</Text>
 			</TouchableOpacity>
 		</ScrollView>
