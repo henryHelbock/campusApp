@@ -48,25 +48,27 @@ function isWithinDateFilter(dateStr: string, filter: DateFilter): boolean {
 
 function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number) => void }) {
   const color = SEVERITY_COLORS[issue.severity];
+  const isFixed = issue.status === 'fixed';
+
   return (
-    <View style={[styles.card, { borderLeftColor: color }]}>
+    <View style={[styles.card, { borderLeftColor: isFixed ? '#ccc' : color }, isFixed && styles.cardFixed]}>
       <View style={styles.cardTop}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.cardCategory}>{issue.category}</Text>
-          <Text style={styles.cardDesc} numberOfLines={2}>{issue.description}</Text>
+          <Text style={[styles.cardCategory, isFixed && styles.textFaded]}>{issue.category}</Text>
+          <Text style={[styles.cardDesc, isFixed && styles.textFaded]} numberOfLines={2}>{issue.description}</Text>
         </View>
-        <View style={[styles.sevBadge, { backgroundColor: color + '22', borderColor: color }]}>
-          <Text style={[styles.sevBadgeText, { color }]}>{issue.severity}</Text>
+        <View style={[styles.sevBadge, { backgroundColor: isFixed ? '#eee' : color + '22', borderColor: isFixed ? '#ccc' : color }]}>
+          <Text style={[styles.sevBadgeText, { color: isFixed ? '#aaa' : color }]}>{issue.severity}</Text>
         </View>
       </View>
       <View style={styles.cardMeta}>
-        <Text style={styles.metaText}>📊 {issue.reportCount} report{issue.reportCount !== 1 ? 's' : ''}</Text>
-        <Text style={styles.metaText}>🕒 {timeAgo(issue.createdAt)}</Text>
-        <View style={[styles.statusBadge, issue.status === 'active' ? styles.statusActive : styles.statusFixed]}>
+        <Text style={[styles.metaText, isFixed && styles.textFaded]}>📊 {issue.reportCount} report{issue.reportCount !== 1 ? 's' : ''}</Text>
+        <Text style={[styles.metaText, isFixed && styles.textFaded]}>🕒 {timeAgo(issue.createdAt)}</Text>
+        <View style={[styles.statusBadge, isFixed ? styles.statusFixed : styles.statusActive]}>
           <Text style={styles.statusText}>{issue.status}</Text>
         </View>
       </View>
-      {issue.status === 'active' && (
+      {!isFixed && (
         <TouchableOpacity style={styles.resolveBtn} onPress={() => onResolve(issue.id)}>
           <Text style={styles.resolveBtnText}>Mark as fixed</Text>
         </TouchableOpacity>
@@ -77,11 +79,11 @@ function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number)
 
 export default function ReportsScreen() {
   const router  = useRouter();
-  const [issues,      setIssues]      = useState<Issue[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [catFilter,   setCatFilter]   = useState<IssueCategory | 'All'>('All');
-  const [sevFilter,   setSevFilter]   = useState<IssueSeverity | 'All'>('All');
-  const [dateFilter,  setDateFilter]  = useState<DateFilter>('All');
+  const [issues,       setIssues]       = useState<Issue[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [catFilter,    setCatFilter]    = useState<IssueCategory | 'All'>('All');
+  const [sevFilter,    setSevFilter]    = useState<IssueSeverity | 'All'>('All');
+  const [dateFilter,   setDateFilter]   = useState<DateFilter>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'fixed'>('All');
 
   const fetchIssues = useCallback(async () => {
@@ -244,9 +246,11 @@ const styles = StyleSheet.create({
   refreshText:     { fontSize: 12, color: '#1A5276', fontWeight: '600' },
   empty:           { textAlign: 'center', color: '#aaa', marginTop: 40, fontSize: 14 },
   card:            { backgroundColor: '#fff', borderRadius: 10, padding: 13, borderWidth: 1, borderColor: '#e0e0e0', borderLeftWidth: 4 },
+  cardFixed:       { backgroundColor: '#fafafa', opacity: 0.75 },
   cardTop:         { flexDirection: 'row', gap: 10, marginBottom: 8 },
   cardCategory:    { fontSize: 13, fontWeight: '600', color: '#1A3D5C', marginBottom: 3 },
   cardDesc:        { fontSize: 12, color: '#555', lineHeight: 17 },
+  textFaded:       { color: '#bbb' },
   sevBadge:        { borderRadius: 6, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   sevBadgeText:    { fontSize: 11, fontWeight: '600' },
   cardMeta:        { flexDirection: 'row', gap: 10, alignItems: 'center' },
