@@ -168,8 +168,28 @@ issuesRouter.post("/", requireAuth, validateCampusBounds, (req: Request, res: Re
 });
 
 // GET /api/issues/:id - Get issue details
-issuesRouter.get("/:id", (_req: Request, res: Response) => {
-  res.status(501).json({ message: "Not implemented: get issue details" });
+issuesRouter.get("/:id", (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+
+    const issue = getDatabase().prepare(
+      `SELECT ${ISSUE_PROJECTION} FROM issues WHERE id = ?`
+    ).get(id);
+
+    if (!issue) {
+      res.status(404).json({ error: 'Issue not found' });
+      return;
+    }
+
+    res.json(issue);
+  } catch (error) {
+    console.error('Get issue error:', error);
+    res.status(500).json({ error: 'Server error fetching issue' });
+  }
 });
 
 // PATCH /api/issues/:id/resolve - Mark issue as fixed
@@ -210,9 +230,4 @@ issuesRouter.patch("/:id/resolve", requireAuth, (req: Request, res: Response) =>
     console.error('Resolve issue error:', error);
     res.status(500).json({ error: 'Server error resolving issue' });
   }
-});
-
-// GET /api/issues/heatmap/data - Get heatmap data
-issuesRouter.get("/heatmap/data", (_req: Request, res: Response) => {
-  res.status(501).json({ message: "Not implemented: heatmap data" });
 });
