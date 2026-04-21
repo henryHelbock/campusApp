@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -32,7 +33,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function IssueCard({ issue }: { issue: Issue }) {
+function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number) => void }) {
   const color = SEVERITY_COLORS[issue.severity];
   return (
     <View style={[styles.card, { borderLeftColor: color }]}>
@@ -52,6 +53,11 @@ function IssueCard({ issue }: { issue: Issue }) {
           <Text style={styles.statusText}>{issue.status}</Text>
         </View>
       </View>
+      {issue.status === 'active' && (
+        <TouchableOpacity style={styles.resolveBtn} onPress={() => onResolve(issue.id)}>
+          <Text style={styles.resolveBtnText}>Mark as fixed</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -76,6 +82,20 @@ export default function ReportsScreen() {
   }, []);
 
   useEffect(() => { fetchIssues(); }, [fetchIssues]);
+
+  const handleResolve = (id: number) => {
+    Alert.alert('Mark as fixed?', 'This will mark the issue as resolved.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Mark fixed', onPress: async () => {
+        try {
+          await issuesApi.markFixed(id);
+          fetchIssues();
+        } catch {
+          Alert.alert('Error', 'Could not mark issue as fixed.');
+        }
+      }}
+    ]);
+  };
 
   const filtered = issues.filter(i => {
     if (i.status === 'archived') return false;
@@ -141,7 +161,7 @@ export default function ReportsScreen() {
         <FlatList
           data={filtered}
           keyExtractor={i => String(i.id)}
-          renderItem={({ item }) => <IssueCard issue={item} />}
+          renderItem={({ item }) => <IssueCard issue={item} onResolve={handleResolve} />}
           contentContainerStyle={{ padding: 12, gap: 10 }}
           ListEmptyComponent={<Text style={styles.empty}>No reports match your filters.</Text>}
         />
@@ -184,6 +204,8 @@ const styles = StyleSheet.create({
   statusActive:    { backgroundColor: '#D5F5E3' },
   statusFixed:     { backgroundColor: '#EAECEE' },
   statusText:      { fontSize: 10, fontWeight: '600', color: '#555' },
+  resolveBtn:      { marginTop: 8, borderWidth: 1, borderColor: '#1A5276', borderRadius: 6, padding: 6, alignItems: 'center' },
+  resolveBtnText:  { fontSize: 12, color: '#1A5276' },
   fab:             { position: 'absolute', bottom: 24, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: '#1A5276', justifyContent: 'center', alignItems: 'center', elevation: 5 },
   fabText:         { color: '#fff', fontSize: 28, lineHeight: 30 },
 });

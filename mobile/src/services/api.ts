@@ -76,7 +76,7 @@ export const issuesApi = {
 		request<Issue>('/issues', { method: 'POST', body: JSON.stringify(data) }),
 
 	markFixed: (id: number) =>
-		request<Issue>(`/issues/${id}`, {
+		request<Issue>(`/issues/${id}/resolve`, {
 			method: 'PATCH',
 			body: JSON.stringify({ status: 'fixed' }),
 	}),
@@ -93,7 +93,7 @@ export const lostFoundApi = {
 	}),
 
 	resolve: (id: number) =>
-		request<LostFoundItem>(`/lost-found/${id}`, {
+		request<LostFoundItem>(`/lost-found/${id}/resolve`, {
 			method: 'PATCH',
 			body: JSON.stringify({ status: 'resolved' }),
 	}),
