@@ -49,13 +49,23 @@ function dateFilterToStartDate(filter: DateFilter): string | undefined {
 function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number) => void }) {
   const color = SEVERITY_COLORS[issue.severity];
   const isFixed = issue.status === 'fixed';
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <View style={[styles.card, { borderLeftColor: isFixed ? '#ccc' : color }, isFixed && styles.cardFixed]}>
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => setExpanded(e => !e)}
+      style={[styles.card, { borderLeftColor: isFixed ? '#ccc' : color }, isFixed && styles.cardFixed]}
+    >
       <View style={styles.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardCategory, isFixed && styles.textFaded]}>{issue.category}</Text>
-          <Text style={[styles.cardDesc, isFixed && styles.textFaded]} numberOfLines={2}>{issue.description}</Text>
+          <Text
+            style={[styles.cardDesc, isFixed && styles.textFaded]}
+            numberOfLines={expanded ? undefined : 2}
+          >
+            {issue.description}
+          </Text>
         </View>
         <View style={[styles.sevBadge, { backgroundColor: isFixed ? '#eee' : color + '22', borderColor: isFixed ? '#ccc' : color }]}>
           <Text style={[styles.sevBadgeText, { color: isFixed ? '#aaa' : color }]}>{issue.severity}</Text>
@@ -73,7 +83,7 @@ function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number)
           <Text style={styles.resolveBtnText}>Mark as fixed</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
