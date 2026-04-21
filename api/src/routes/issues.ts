@@ -86,7 +86,7 @@ issuesRouter.get("/", (req: Request, res: Response) => {
     res.json(issues);
   } catch (error) {
     console.error("Database error fetching issues:", error);
-    res.status(500).json({ message: "Internal server error while fetching issues" });
+    res.status(500).json({ error: "Internal server error while fetching issues" });
   }
 });
 
