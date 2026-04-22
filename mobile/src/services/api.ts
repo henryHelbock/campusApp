@@ -30,6 +30,20 @@ export function setAuthToken(token: string | null) {
 	authToken = token;
 }
 
+// Thrown when fetch itself rejects before getting a response (DNS failure,
+// connection refused, timeout). Screens use this tag to decide whether to
+// show the demo-data fallback vs a real error surface.
+export class NetworkError extends Error {
+	cause?: unknown;
+	constructor(cause?: unknown) {
+		super('Network request failed');
+		this.name = 'NetworkError';
+		this.cause = cause;
+	}
+}
+
+const REQUEST_TIMEOUT_MS = 15000;
+
 async function request<T>(
 	path: string,
 	options: RequestInit = {}
@@ -40,7 +54,19 @@ async function request<T>(
 	};
 	if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
-	const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+	let res: Response;
+	try {
+		res = await fetch(`${API_BASE}${path}`, { ...options, headers, signal: controller.signal });
+	} catch (err) {
+		// fetch rejection (DNS, connection refused, timeout/abort) — tag as NetworkError
+		// so the UI can show the demo-data fallback instead of a real error banner.
+		throw new NetworkError(err);
+	} finally {
+		clearTimeout(timeoutId);
+	}
 	if (!res.ok) {
 		const err = await res.json().catch(() => ({ message: res.statusText }));
 		throw new Error(err.message ?? 'Request failed');
@@ -66,8 +92,12 @@ export const authAPI = {
 // Issues (for Darin)
 export const issuesApi = {
 	getAll: (filters?: IssueFilters) => {
-		const params = filters
-			? '?' + new URLSearchParams(filters as Record<string, string>).toString()
+		const entries = Object.entries(filters ?? {}).filter(
+			(pair): pair is [string, string] =>
+				typeof pair[1] === 'string' && pair[1] !== ''
+		);
+		const params = entries.length
+			? '?' + new URLSearchParams(entries).toString()
 			: '';
 		return request<Issue[]>(`/issues${params}`);
 	},

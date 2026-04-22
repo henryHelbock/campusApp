@@ -15,8 +15,8 @@ import {
   SEVERITY_LEVELS,
   SEVERITY_COLORS,
 } from '@campusapp/shared';
-import type { Issue, IssueCategory, IssueSeverity } from '@campusapp/shared';
-import { issuesApi } from '../../src/services/api';
+import type { Issue, IssueCategory, IssueSeverity, IssueFilters, IssueStatus } from '@campusapp/shared';
+import { issuesApi, NetworkError } from '../../src/services/api';
 
 // ── Demo data ─────────────────────────────────────────────────
 const DEMO_ISSUES: Issue[] = [
@@ -27,6 +27,12 @@ const DEMO_ISSUES: Issue[] = [
 
 type DateFilter = 'All' | 'Today' | '7 days' | '30 days';
 
+const DATE_FILTER_MS: Record<Exclude<DateFilter, 'All'>, number> = {
+  'Today': 86400000,
+  '7 days': 604800000,
+  '30 days': 2592000000,
+};
+
 function timeAgo(dateStr: string): string {
   const diff  = Date.now() - new Date(dateStr).getTime();
   const hours = Math.floor(diff / 3600000);
@@ -35,27 +41,31 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function isWithinDateFilter(dateStr: string, filter: DateFilter): boolean {
-  if (filter === 'All') return true;
-  const now = Date.now();
-  const created = new Date(dateStr).getTime();
-  const diff = now - created;
-  if (filter === 'Today')   return diff < 86400000;
-  if (filter === '7 days')  return diff < 604800000;
-  if (filter === '30 days') return diff < 2592000000;
-  return true;
+function dateFilterToStartDate(filter: DateFilter): string | undefined {
+  if (filter === 'All') return undefined;
+  return new Date(Date.now() - DATE_FILTER_MS[filter]).toISOString();
 }
 
 function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number) => void }) {
   const color = SEVERITY_COLORS[issue.severity];
   const isFixed = issue.status === 'fixed';
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <View style={[styles.card, { borderLeftColor: isFixed ? '#ccc' : color }, isFixed && styles.cardFixed]}>
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => setExpanded(e => !e)}
+      style={[styles.card, { borderLeftColor: isFixed ? '#ccc' : color }, isFixed && styles.cardFixed]}
+    >
       <View style={styles.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardCategory, isFixed && styles.textFaded]}>{issue.category}</Text>
-          <Text style={[styles.cardDesc, isFixed && styles.textFaded]} numberOfLines={2}>{issue.description}</Text>
+          <Text
+            style={[styles.cardDesc, isFixed && styles.textFaded]}
+            numberOfLines={expanded ? undefined : 2}
+          >
+            {issue.description}
+          </Text>
         </View>
         <View style={[styles.sevBadge, { backgroundColor: isFixed ? '#eee' : color + '22', borderColor: isFixed ? '#ccc' : color }]}>
           <Text style={[styles.sevBadgeText, { color: isFixed ? '#aaa' : color }]}>{issue.severity}</Text>
@@ -73,7 +83,7 @@ function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number)
           <Text style={styles.resolveBtnText}>Mark as fixed</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -84,19 +94,32 @@ export default function ReportsScreen() {
   const [catFilter,    setCatFilter]    = useState<IssueCategory | 'All'>('All');
   const [sevFilter,    setSevFilter]    = useState<IssueSeverity | 'All'>('All');
   const [dateFilter,   setDateFilter]   = useState<DateFilter>('All');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'active' | 'fixed'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | IssueStatus>('All');
+  const [fetchError,   setFetchError]   = useState<string | null>(null);
 
   const fetchIssues = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await issuesApi.getAll();
+      const filters: IssueFilters = {
+        category: catFilter !== 'All' ? catFilter : undefined,
+        severity: sevFilter !== 'All' ? sevFilter : undefined,
+        status:   statusFilter !== 'All' ? statusFilter : undefined,
+        startDate: dateFilterToStartDate(dateFilter),
+      };
+      const data = await issuesApi.getAll(filters);
       setIssues(data);
-    } catch {
-      setIssues(DEMO_ISSUES);
+      setFetchError(null);
+    } catch (err) {
+      if (err instanceof NetworkError) {
+        setIssues(DEMO_ISSUES);
+        setFetchError(null);
+      } else {
+        setFetchError(err instanceof Error ? err.message : 'Failed to load reports');
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [catFilter, sevFilter, statusFilter, dateFilter]);
 
   useEffect(() => { fetchIssues(); }, [fetchIssues]);
 
@@ -114,14 +137,9 @@ export default function ReportsScreen() {
     ]);
   };
 
-  const filtered = issues.filter(i => {
-    if (i.status === 'archived') return false;
-    if (statusFilter !== 'All' && i.status !== statusFilter) return false;
-    if (catFilter !== 'All' && i.category !== catFilter) return false;
-    if (sevFilter !== 'All' && i.severity !== sevFilter) return false;
-    if (!isWithinDateFilter(i.createdAt, dateFilter)) return false;
-    return true;
-  });
+  // The server applies category, severity, status, and startDate filters.
+  // Archived rows are also excluded server-side when no explicit status is passed.
+  const filtered = issues;
 
   return (
     <View style={styles.container}>
@@ -207,6 +225,12 @@ export default function ReportsScreen() {
         </TouchableOpacity>
       </View>
 
+      {fetchError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{fetchError}</Text>
+        </View>
+      )}
+
       {/* List */}
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#1A5276" />
@@ -263,4 +287,6 @@ const styles = StyleSheet.create({
   resolveBtnText:  { fontSize: 12, color: '#1A5276' },
   fab:             { position: 'absolute', bottom: 24, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: '#1A5276', justifyContent: 'center', alignItems: 'center', elevation: 5 },
   fabText:         { color: '#fff', fontSize: 28, lineHeight: 30 },
+  errorBanner:     { marginHorizontal: 14, marginTop: 6, backgroundColor: '#FDEDEC', borderColor: '#E74C3C', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  errorBannerText: { fontSize: 11, color: '#922B21' },
 });

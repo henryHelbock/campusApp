@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,7 +6,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import MapView, { Circle, Marker, Region } from 'react-native-maps';
 import {
   CAMPUS_CENTER,
@@ -16,8 +18,8 @@ import {
   SEVERITY_COLORS,
   SEVERITY_LEVELS,
 } from '@campusapp/shared';
-import type { Issue, IssueCategory, IssueSeverity, LostFoundItem } from '@campusapp/shared';
-import { issuesApi, lostFoundApi } from '../../services/api';
+import type { Issue, IssueCategory, LostFoundItem } from '@campusapp/shared';
+import { issuesApi, lostFoundApi, NetworkError } from '../../services/api';
 
 // ── Demo data (used until backend is connected) ───────────────
 const DEMO_ISSUES: Issue[] = [
@@ -35,17 +37,18 @@ const bubbleRadius = (count: number) => 20 + count * 8;
 
 type FilterState = {
   category: IssueCategory | 'All';
-  severity: IssueSeverity | 'All';
 };
 
 export default function CampusMap() {
   const [issues,    setIssues]    = useState<Issue[]>([]);
   const [lostItems, setLostItems] = useState<LostFoundItem[]>([]);
   const [loading,   setLoading]   = useState(true);
-  const [filters,   setFilters]   = useState<FilterState>({ category: 'All', severity: 'All' });
+  const [filters,   setFilters]   = useState<FilterState>({ category: 'All' });
   const [showHeatmap,   setShowHeatmap]   = useState(true);
   const [showLostFound, setShowLostFound] = useState(true);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [fetchError,    setFetchError]    = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const mapRegion: Region = {
     latitude:  CAMPUS_CENTER.latitude,
@@ -53,8 +56,8 @@ export default function CampusMap() {
     ...CAMPUS_DEFAULT_ZOOM,
   };
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [issueData, lfData] = await Promise.all([
         issuesApi.getAll(),
@@ -62,27 +65,73 @@ export default function CampusMap() {
       ]);
       setIssues(issueData);
       setLostItems(lfData);
-    } catch {
-      // Backend not yet connected — fall back to demo data
-      setIssues(DEMO_ISSUES);
-      setLostItems(DEMO_LOST);
+      setFetchError(null);
+    } catch (err) {
+      if (err instanceof NetworkError) {
+        // Device can't reach the backend (e.g. Expo Go on a different Wi-Fi) — fall back to demo data.
+        setIssues(DEMO_ISSUES);
+        setLostItems(DEMO_LOST);
+        setFetchError(null);
+      } else {
+        // Server returned an error; keep whatever data we have and surface a message.
+        setFetchError(err instanceof Error ? err.message : 'Failed to load map data');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const filteredIssues = issues.filter(issue => {
-    if (issue.status !== 'active') return false;
-    if (filters.category !== 'All' && issue.category !== filters.category) return false;
-    if (filters.severity !== 'All' && issue.severity !== filters.severity) return false;
-    return true;
-  });
-
-  const activeLostItems = lostItems.filter(
-    i => i.status === 'active' && i.latitude != null && i.longitude != null
+  // Fetch on tab focus + poll every 60s while focused (Manual §4.1). Silent polls
+  // avoid flashing the loading overlay every minute.
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+      intervalRef.current = setInterval(() => fetchData({ silent: true }), 60000);
+      return () => {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      };
+    }, [fetchData])
   );
+
+  // Silent refetch when the app returns from background; prevents stale data after >60s away.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (next === 'active') fetchData({ silent: true });
+    });
+    return () => sub.remove();
+  }, [fetchData]);
+
+  // Manual ↻ resets the 60s clock so users don't see a second overlay flash right after tapping.
+  const onManualRefresh = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    fetchData();
+    intervalRef.current = setInterval(() => fetchData({ silent: true }), 60000);
+  }, [fetchData]);
+
+  const filteredIssues = useMemo(
+    () => issues.filter(issue => {
+      if (issue.status !== 'active') return false;
+      if (filters.category !== 'All' && issue.category !== filters.category) return false;
+      return true;
+    }),
+    [issues, filters.category]
+  );
+
+  const activeLostItems = useMemo(
+    () => lostItems.filter(i => i.status === 'active' && i.latitude != null && i.longitude != null),
+    [lostItems]
+  );
+
+  // Close popup when the selected issue is no longer in the filtered set
+  // (filter change, auto-refresh dropped the row, or status transitioned).
+  useEffect(() => {
+    if (selectedIssue && !filteredIssues.some(i => i.id === selectedIssue.id)) {
+      setSelectedIssue(null);
+    }
+  }, [filteredIssues, selectedIssue]);
 
   return (
     <View style={styles.container}>
@@ -167,10 +216,16 @@ export default function CampusMap() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.refreshBtn} onPress={fetchData}>
+        <TouchableOpacity style={styles.refreshBtn} onPress={onManualRefresh}>
           <Text style={styles.refreshText}>↻</Text>
         </TouchableOpacity>
       </View>
+
+      {fetchError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{fetchError}</Text>
+        </View>
+      )}
 
       {/* ── Legend ─────────────────────────────────────────── */}
       <View style={styles.legend}>
@@ -245,4 +300,6 @@ const styles = StyleSheet.create({
   popupDesc:       { fontSize: 12, color: '#555', marginBottom: 4 },
   popupMeta:       { fontSize: 11, color: '#999' },
   loadingOverlay:  { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center' },
+  errorBanner:     { position: 'absolute', top: 96, left: 10, right: 10, backgroundColor: '#FDEDEC', borderColor: '#E74C3C', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  errorBannerText: { fontSize: 11, color: '#922B21' },
 });

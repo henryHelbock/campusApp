@@ -2,35 +2,91 @@ import { Router, Request, Response } from "express";
 import { authenticate, requireAuth } from "../middleware/auth";
 import { validateCampusBounds } from "../middleware/validateCampusBounds";
 import { getDatabase } from "../db/database";
+import { ISSUE_CATEGORIES, SEVERITY_LEVELS } from "@campusapp/shared";
 
 export const issuesRouter = Router();
 
 issuesRouter.use(authenticate);
 
+const ISSUE_STATUSES = ['active', 'fixed', 'archived'] as const;
+const ISO_8601_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?Z?)?$/;
+
+const ISSUE_PROJECTION = `
+  id,
+  category,
+  severity,
+  description,
+  latitude,
+  longitude,
+  report_count AS reportCount,
+  reporter_id AS reporterId,
+  status,
+  created_at AS createdAt,
+  updated_at AS updatedAt
+`;
+
 // GET /api/issues - List issues with optional filters
-issuesRouter.get("/", (_req: Request, res: Response) => {
+issuesRouter.get("/", (req: Request, res: Response) => {
   try {
-    const db = getDatabase();
-    const issues = db.prepare(`
-      SELECT
-        id,
-        category,
-        severity,
-        description,
-        latitude,
-        longitude,
-        report_count AS reportCount,
-        reporter_id AS reporterId,
-        status,
-        created_at AS createdAt,
-        updated_at AS updatedAt
-      FROM issues
-    `).all();
+    const q = req.query;
+
+    // Scalar-only enforcement: reject array-shaped query params like ?category=A&category=B
+    for (const key of ['category', 'severity', 'status', 'startDate', 'endDate']) {
+      if (Array.isArray(q[key])) {
+        res.status(400).json({ error: `Invalid ${key}: expected a single value` });
+        return;
+      }
+    }
+
+    const category = typeof q.category === 'string' && q.category !== '' ? q.category : undefined;
+    const severity = typeof q.severity === 'string' && q.severity !== '' ? q.severity : undefined;
+    const status = typeof q.status === 'string' && q.status !== '' ? q.status : undefined;
+    const startDate = typeof q.startDate === 'string' && q.startDate !== '' ? q.startDate : undefined;
+    const endDate = typeof q.endDate === 'string' && q.endDate !== '' ? q.endDate : undefined;
+
+    if (category !== undefined && !(ISSUE_CATEGORIES as readonly string[]).includes(category)) {
+      res.status(400).json({ error: 'Invalid category' });
+      return;
+    }
+    if (severity !== undefined && !(SEVERITY_LEVELS as readonly string[]).includes(severity)) {
+      res.status(400).json({ error: 'Invalid severity' });
+      return;
+    }
+    if (status !== undefined && !(ISSUE_STATUSES as readonly string[]).includes(status)) {
+      res.status(400).json({ error: 'Invalid status' });
+      return;
+    }
+    for (const [name, val] of [['startDate', startDate], ['endDate', endDate]] as const) {
+      if (val !== undefined) {
+        if (!ISO_8601_RE.test(val) || isNaN(new Date(val).getTime())) {
+          res.status(400).json({ error: `Invalid ${name}: expected ISO-8601` });
+          return;
+        }
+      }
+    }
+
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    if (category !== undefined) { clauses.push('category = ?'); params.push(category); }
+    if (severity !== undefined) { clauses.push('severity = ?'); params.push(severity); }
+    if (status !== undefined) {
+      clauses.push('status = ?');
+      params.push(status);
+    } else {
+      // Default: hide archived from list responses
+      clauses.push("status IN ('active', 'fixed')");
+    }
+    if (startDate !== undefined) { clauses.push('created_at >= ?'); params.push(startDate); }
+    if (endDate !== undefined) { clauses.push('created_at <= ?'); params.push(endDate); }
+
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const sql = `SELECT ${ISSUE_PROJECTION} FROM issues ${where} ORDER BY created_at DESC, id DESC`;
+    const issues = getDatabase().prepare(sql).all(...params);
 
     res.json(issues);
   } catch (error) {
     console.error("Database error fetching issues:", error);
-    res.status(500).json({ message: "Internal server error while fetching issues" });
+    res.status(500).json({ error: "Internal server error while fetching issues" });
   }
 });
 
@@ -112,8 +168,28 @@ issuesRouter.post("/", requireAuth, validateCampusBounds, (req: Request, res: Re
 });
 
 // GET /api/issues/:id - Get issue details
-issuesRouter.get("/:id", (_req: Request, res: Response) => {
-  res.status(501).json({ message: "Not implemented: get issue details" });
+issuesRouter.get("/:id", (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: 'Invalid id' });
+      return;
+    }
+
+    const issue = getDatabase().prepare(
+      `SELECT ${ISSUE_PROJECTION} FROM issues WHERE id = ?`
+    ).get(id);
+
+    if (!issue) {
+      res.status(404).json({ error: 'Issue not found' });
+      return;
+    }
+
+    res.json(issue);
+  } catch (error) {
+    console.error('Get issue error:', error);
+    res.status(500).json({ error: 'Server error fetching issue' });
+  }
 });
 
 // PATCH /api/issues/:id/resolve - Mark issue as fixed
@@ -154,9 +230,4 @@ issuesRouter.patch("/:id/resolve", requireAuth, (req: Request, res: Response) =>
     console.error('Resolve issue error:', error);
     res.status(500).json({ error: 'Server error resolving issue' });
   }
-});
-
-// GET /api/issues/heatmap/data - Get heatmap data
-issuesRouter.get("/heatmap/data", (_req: Request, res: Response) => {
-  res.status(501).json({ message: "Not implemented: heatmap data" });
 });
