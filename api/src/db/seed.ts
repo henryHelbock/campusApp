@@ -1,4 +1,5 @@
 import { getDatabase, closeDatabase } from "./database";
+import bcrypt from "bcrypt";
 import fs from "fs";
 import path from "path";
 
@@ -39,8 +40,11 @@ function seed(): void {
 
 	console.log("Injecting flagged seed data...");
 
-	// Create a test admin user (password: "admin123" — NOT for production)
-	const adminHash = "$2b$10$placeholder_hash_for_dev_only";
+	// Dev-only test credentials. DO NOT ship these passwords to production.
+	const ADMIN_PASSWORD = "admin123";
+	const STUDENT_PASSWORD = "student123";
+
+	const adminHash = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 	db.prepare(
 		`
         INSERT INTO users (email, password_hash, role, status)
@@ -48,7 +52,7 @@ function seed(): void {
     `,
 	).run("admin@oneonta.edu", adminHash);
 
-	const studentHash = "$2b$10$placeholder_hash_for_dev_only";
+	const studentHash = bcrypt.hashSync(STUDENT_PASSWORD, 10);
 	const studentResult = db
 		.prepare(
 			`
@@ -112,6 +116,8 @@ function seed(): void {
 	).run(studentId);
 
 	console.log("Seed data inserted successfully.");
+	console.log(`  Admin:   admin@oneonta.edu  /  ${ADMIN_PASSWORD}`);
+	console.log(`  Student: student@oneonta.edu / ${STUDENT_PASSWORD}`);
 	closeDatabase();
 }
 
