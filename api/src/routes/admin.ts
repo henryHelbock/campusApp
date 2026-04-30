@@ -41,8 +41,28 @@ adminRouter.get("/lost-found/all", (_req, res) => {
 });
 
 // PATCH /api/admin/issues/:id/severity - Override issue severity
-adminRouter.patch("/issues/:id/severity", (_req, res) => {
-    res.status(501).json({ message: "Not implemented: override severity" });
+adminRouter.patch("/issues/:id/severity", (req, res) => {
+    try {
+        const db = getDatabase();
+        const issueId = req.params.id;
+        const adminId = (req as any).user.id;
+        const { severity } = req.body;
+
+        const validSeverities = ['Mild', 'Medium', 'Large', 'Severe'];
+        if (!severity || !validSeverities.includes(severity)) {
+            return res.status(400).json({ error: `severity must be one of: ${validSeverities.join(', ')}` });
+        }
+
+        const result = db.prepare("UPDATE issues SET severity = ? WHERE id = ?").run(severity, issueId);
+        if (result.changes === 0) {
+            return res.status(404).json({ error: 'Issue not found' });
+        }
+
+        logAudit(db, adminId, 'OVERRODE_SEVERITY', issueId);
+        res.json({ message: `Issue: ${issueId} severity set to ${severity}` });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // DELETE /api/admin/issues/:id - Remove inappropriate issue

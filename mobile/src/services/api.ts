@@ -127,4 +127,6 @@ export const lostFoundApi = {
 			method: 'PATCH',
 			body: JSON.stringify({ status: 'resolved' }),
 	}),
+	claim: (id: number) =>
+		request<{ message: string }>(`/lost-found/${id}/claim`, { method: 'PATCH' }),
 };

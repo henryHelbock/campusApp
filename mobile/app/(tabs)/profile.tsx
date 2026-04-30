@@ -102,7 +102,8 @@ export default function ProfileScreen() {
 				</View>
 				<Text style={styles.userName}>{displayName}</Text>
 				<Text style={styles.userEmail}>{email}</Text>
-				<TouchableOpacity style={styles.editButton}>
+				<TouchableOpacity style={styles.editButton} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
+					{/* fixing dead buttons, adding onPress functions */}
 					<Text style={styles.editButtonText}>Edit Profile</Text>
 				</TouchableOpacity>
 			</View>
@@ -124,12 +125,12 @@ export default function ProfileScreen() {
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Account</Text>
 
-				<TouchableOpacity style={styles.menuItem}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
 					<Text style={styles.menuItemText}>Notification Preferences</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity style={styles.menuItem}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
 					<Text style={styles.menuItemText}>Privacy & Security</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
@@ -138,12 +139,12 @@ export default function ProfileScreen() {
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Support</Text>
 
-				<TouchableOpacity style={styles.menuItem}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
 					<Text style={styles.menuItemText}>Help Center</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity style={styles.menuItem}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
 					<Text style={styles.menuItemText}>Terms of Service</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>

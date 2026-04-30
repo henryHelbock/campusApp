@@ -81,13 +81,57 @@ lostFoundRouter.post('/', requireAuth, validateCampusBounds, (req: Request, res:
 });
 
 // GET /api/lost-found/:id - Get item details
-lostFoundRouter.get('/:id', (_req: Request, res: Response) => {
-  res.status(501).json({ message: 'Not implemented: get lost/found item details' });
+lostFoundRouter.get('/:id', (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const item = db.prepare(`
+      SELECT id, type, title, description, category, latitude, longitude,
+        reporter_id AS reporterId, status, created_at AS createdAt
+      FROM lost_found_items WHERE id = ?
+    `).get(req.params.id);
+
+    if (!item) {
+      res.status(404).json({ error: 'Item not found' });
+      return;
+    }
+
+    const imageUrls = db.prepare('SELECT url FROM item_images WHERE item_id = ?')
+      .all(req.params.id).map((row: any) => row.url);
+
+    res.json({ ...(item as any), imageUrls });
+  } catch (error) {
+    console.error('Get lost/found item error:', error);
+    res.status(500).json({ error: 'Server error fetching item' });
+  }
 });
 
 // PATCH /api/lost-found/:id/claim - Claim a found item
-lostFoundRouter.patch('/:id/claim', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ message: 'Not implemented: claim item' });
+lostFoundRouter.patch('/:id/claim', requireAuth, (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const { id } = req.params;
+    const user = (req as any).user;
+
+    const item = db.prepare('SELECT * FROM lost_found_items WHERE id = ?').get(id) as any;
+    if (!item) {
+      res.status(404).json({ error: 'Item not found' });
+      return;
+    }
+    if (item.status !== 'active') {
+      res.status(409).json({ error: `Item is already ${item.status}` });
+      return;
+    }
+    if (item.reporter_id === user.id) {
+      res.status(400).json({ error: 'You cannot claim your own item' });
+      return;
+    }
+
+      db.prepare("UPDATE lost_found_items SET status = 'claimed' WHERE id = ?").run(id);
+      res.json({ message: 'Item claimed successfully' });
+  } catch (error) {
+    console.error('Claim lost/found error:', error);
+    res.status(500).json({ error: 'Server error claiming item' });
+  }
 });
 
 // PATCH /api/lost-found/:id/resolve - Mark item as resolved
