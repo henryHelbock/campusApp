@@ -12,6 +12,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl
 } from 'react-native';
 import type { LostFoundItem, LostFoundType } from '@campusapp/shared';
 import { lostFoundApi } from '../../src/services/api';
@@ -45,7 +46,7 @@ function isWithinDateFilter(dateStr: string, filter: DateFilter): boolean {
 }
 
 // ── Item card ─────────────────────────────────────────────────
-function ItemCard({ item, onResolve }: { item: LostFoundItem; onResolve: (id: number) => void }) {
+function ItemCard({ item, onResolve, onClaim }: { item: LostFoundItem; onResolve: (id: number) => void; onClaim: (id: number) => void }) {
   const isLost = item.type === 'lost';
   return (
     <View style={[styles.card, isLost ? styles.cardLost : styles.cardFound]}>
@@ -68,6 +69,11 @@ function ItemCard({ item, onResolve }: { item: LostFoundItem; onResolve: (id: nu
       {isLost && (
         <TouchableOpacity style={styles.resolveBtn} onPress={() => onResolve(item.id)}>
           <Text style={styles.resolveBtnText}>Mark as resolved</Text>
+        </TouchableOpacity>
+      )}
+      {!isLost && (
+        <TouchableOpacity style={styles.resolveBtn} onPress={() => onClaim(item.id)}>
+          <Text style={styles.resolveBtnText}>I found this - Claim</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -116,6 +122,20 @@ export default function LostFoundScreen() {
       }}
     ]);
   };
+
+  const handleClaim = async (id: number) => {
+    Alert.alert('Claim this item?', 'This will mark the item as claimed.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Claim', onPress: async () => {
+        try {
+          await lostFoundApi.claim(id);
+          fetchItems();
+        } catch {
+          Alert.alert('Error', 'Could not claim item.');
+        }
+      }}
+    ])
+  }
 
   const handleSubmit = async () => {
     setFormError('');
@@ -209,9 +229,10 @@ export default function LostFoundScreen() {
         <FlatList
           data={filtered}
           keyExtractor={i => String(i.id)}
-          renderItem={({ item }) => <ItemCard item={item} onResolve={handleResolve} />}
+          renderItem={({ item }) => <ItemCard item={item} onResolve={handleResolve} onClaim={handleClaim} />}
           contentContainerStyle={{ padding: 12, gap: 10 }}
           ListEmptyComponent={<Text style={styles.empty}>No items found.</Text>}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchItems} />}
         />
       )}
 

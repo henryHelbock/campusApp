@@ -7,6 +7,8 @@ import {
     ScrollView,
     ActivityIndicator,
     Modal,
+    Alert,
+    RefreshControl,
 } from "react-native";
 import { API_BASE } from "../../src/services/api";
 import * as SecureStore from "expo-secure-store";
@@ -210,6 +212,27 @@ export default function AdminDashboardScreen() {
         }
     };
 
+    const handleOverrideSeverity = (issueId: number) => {
+        const severities = ['Mild', 'Medium', 'Large', 'Severe'];
+        Alert.alert('Override Severity', 'Select a new severity level:', [
+            ...severities.map(s => ({
+                text: s,
+                onPress: async () => {
+                    try {
+                        await fetchWithAuth(`${BASE_URL}/issues/${issueId}/severity`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ severity: s }),
+                        });
+                        handleRefresh();
+                    } catch {
+                        Alert.alert('Error', 'Could not update severity.');
+                    }
+                }
+            })),
+            { text: 'Cancel', style: 'cancel' }
+        ]);
+    };
+
     // --- LOST & FOUND ACTIONS ---
     const handleResolveLnf = async (itemId: number) => {
         try {
@@ -275,7 +298,10 @@ export default function AdminDashboardScreen() {
     }
 
     return (
-        <ScrollView style={styles.container}>
+        <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
+        >
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Admin Dashboard</Text>
@@ -346,6 +372,9 @@ export default function AdminDashboardScreen() {
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.buttonDanger} onPress={() => handleRemoveIssue(issue.id)}>
                                 <Text style={styles.buttonTextDanger}>Remove</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.buttonPrimary} onPress={() => handleOverrideSeverity(issue.id)}>
+                                <Text style={styles.buttonText}>Severity</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

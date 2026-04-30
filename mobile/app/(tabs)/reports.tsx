@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -223,7 +224,8 @@ export default function ReportsScreen() {
         <TouchableOpacity onPress={fetchIssues}>
           <Text style={styles.refreshText}>↻ Refresh</Text>
         </TouchableOpacity>
-      </View>
+      </View>flaslist
+
 
       {fetchError && (
         <View style={styles.errorBanner}>
@@ -241,6 +243,7 @@ export default function ReportsScreen() {
           renderItem={({ item }) => <IssueCard issue={item} onResolve={handleResolve} />}
           contentContainerStyle={{ padding: 12, gap: 10 }}
           ListEmptyComponent={<Text style={styles.empty}>No reports match your filters.</Text>}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchIssues} />}
         />
       )}
 
