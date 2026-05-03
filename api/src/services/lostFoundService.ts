@@ -1,5 +1,5 @@
 import { getDatabase } from '../db/database';
-import { NotFoundError, ConflictError, ForbiddenError } from './errors';
+import { NotFoundError, ConflictError, ForbiddenError, ValidationError } from './errors';
 
 const LOST_FOUND_PROJECTION = `
     id, type, title, description, category,
@@ -40,8 +40,8 @@ export function createLostFoundItem(
     const db = getDatabase();
     const { type, title, description, category, latitude, longitude } = data;
 
-    if (!type || !title || !description) throw new Error('type, title, and description are required');
-    if (!['lost', 'found'].includes(type)) throw new Error('type must be either lost or found');
+    if (!type || !title || !description) throw new ValidationError('type, title, and description are required');
+    if (!['lost', 'found'].includes(type)) throw new ValidationError('type must be either lost or found');
 
     const result = db.prepare(`
         INSERT INTO lost_found_items (type, title, description, category, latitude, longitude, reporter_id)

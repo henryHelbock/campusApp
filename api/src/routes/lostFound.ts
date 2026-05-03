@@ -37,7 +37,7 @@ lostFoundRouter.post('/', requireAuth, validateCampusBounds, (req: Request, res:
 lostFoundRouter.get('/:id', (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    res.json(resolveLostFoundItem(id));
+    res.json(getLostFoundItemById(id));
   } catch (error) {
     handleError(res, error);
   }
@@ -47,7 +47,7 @@ lostFoundRouter.get('/:id', (req: Request, res: Response) => {
 lostFoundRouter.patch('/:id/claim', requireAuth, (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    res.json(resolveLostFoundItem(id));
+    res.json(claimLostFoundItem(id, (req as any).user.id));
   } catch (error) {
     handleError(res, error);
   }

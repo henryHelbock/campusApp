@@ -19,10 +19,16 @@ export function getModerationQueue() {
     .all();
 }
 
-export function archiveIssue(issueId: string, adminId: number) {
+/*export function archiveIssue(issueId: string, adminId: number) {
   getDatabase().prepare("UPDATE issues SET status = 'archived' WHERE id = ?").run(issueId);
   logAudit(adminId, 'REMOVED_ISSUE', issueId);
   return { message: `Issue ${issueId} has been archived.` };
+}*/
+export function archiveIssue(issueId: string, adminId: number) {
+  const result = getDatabase().prepare("UPDATE issues SET status = 'archived' WHERE id = ?").run(issueId);
+  if (result.changes === 0) throw new NotFoundError('Issue not found.');
+  logAudit(adminId, 'REMOVED_ISSUE', issueId);
+  return { message: `Issue ${issueId} has been archived` };
 }
 
 export function dismissIssue(issueId: string, adminId: number) {
@@ -57,10 +63,16 @@ export function getActiveLostFoundItems() {
     .all();
 }
 
-export function resolveLostFoundItem(itemId: string, adminId: number) {
+/*export function resolveLostFoundItem(itemId: string, adminId: number) {
   getDatabase().prepare("UPDATE lost_found_items SET status = 'resolved' WHERE id = ?").run(itemId);
   logAudit(adminId, 'RESOLVED_LNF', itemId);
   return { message: `Item ${itemId} has been resolved/removed.` };
+}*/
+export function resolveLostFoundItem(itemId: string, adminId: number) {
+  const result = getDatabase().prepare("UPDATE lost_found_items SET status = 'resolved' WHERE id = ?").run(itemId);
+  if (result.changes === 0) throw new NotFoundError('Item not found');
+  logAudit(adminId, 'RESOLVED_LNF', itemId);
+  return { message: `Item ${itemId} has been resolved/removed` };
 }
 
 export function getStudentUsers() {
@@ -69,10 +81,16 @@ export function getStudentUsers() {
     .all();
 }
 
-export function suspendUser(userId: string, adminId: number) {
+/*export function suspendUser(userId: string, adminId: number) {
   getDatabase().prepare("UPDATE users SET status = 'suspended' WHERE id = ?").run(userId);
   logAudit(adminId, 'SUSPENDED_USER', userId);
   return { message: `User ${userId} suspended.` };
+}*/
+export function suspendUser(userId: string, adminId: number) {
+  const result = getDatabase().prepare("UPDATE users SET status = 'suspended' WHERE id = ?").run(userId);
+  if (result.changes === 0) throw new NotFoundError('User not found');
+  logAudit(adminId, 'SUSPENDED_USER', userId);
+  return { message: `User ${userId} suspended` };
 }
 
 export function banUser(userId: string, adminId: number) {
@@ -84,10 +102,16 @@ export function banUser(userId: string, adminId: number) {
   return { message: `User ${userId} banned and all their content was permanently deleted.` };
 }
 
-export function reactivateUser(userId: string, adminId: number) {
+/*export function reactivateUser(userId: string, adminId: number) {
   getDatabase().prepare("UPDATE users SET status = 'active' WHERE id = ?").run(userId);
   logAudit(adminId, 'REACTIVATED_USER', userId);
   return { message: `User ${userId} reactivated.` };
+}*/
+export function reactivateUser(userId: string, adminId: number) {
+  const result = getDatabase().prepare("UPDATE users SET status = 'active' WHERE id = ?").run(userId);
+  if (result.changes === 0) throw new NotFoundError('User not found');
+  logAudit(adminId, 'REACTIVATED_USER', userId);
+  return { message: `User ${userId} reactiveated` };
 }
 
 export function getAuditLogs() {

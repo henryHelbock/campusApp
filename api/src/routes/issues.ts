@@ -3,6 +3,7 @@ import { authenticate, requireAuth } from "../middleware/auth";
 import { validateCampusBounds } from "../middleware/validateCampusBounds";
 import { handleError } from "../utils/handleError"
 import { getIssues, getIssueById, createIssue, resolveIssue } from "../services/issueService";
+import { parseIssueFilters } from '../utils/parseIssueFilters';
 
 export const issuesRouter = Router();
 
@@ -10,6 +11,13 @@ issuesRouter.use(authenticate);
 
 // GET /api/issues
 issuesRouter.get("/", (req: Request, res: Response) => {
+  try {
+    res.json(getIssues(parseIssueFilters(req.query)));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+/*issuesRouter.get("/", (req: Request, res: Response) => {
   try {
     const q = req.query;
     for (const key of ['category', 'severity', 'status', 'startDate', 'endDate']) {
@@ -29,7 +37,7 @@ issuesRouter.get("/", (req: Request, res: Response) => {
   } catch (error) {
     handleError(res, error);
   }
-});
+});*/
 
 // POST /api/issues
 issuesRouter.post("/", requireAuth, validateCampusBounds, (req: Request, res: Response) => {
