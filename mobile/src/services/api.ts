@@ -87,6 +87,21 @@ export const authAPI = {
 		'/auth/login',
 		{ method: 'POST', body: JSON.stringify({ email, password }) }
 	),
+	getProfile: () =>
+		request<{ email: string; totalReports: number; resolvedReports: number }>('/auth/me'
+	),
+
+	updateEmail: (email: string) =>
+		request<{ message: string }>('/auth/me', {
+			method: 'PATCH',
+			body: JSON.stringify({ email }),
+		}),
+
+	updatePassword: (currentPassword: string, newPassword: string) =>
+		request<{ message: string }>('/auth/me', {
+			method: 'PATCH',
+			body: JSON.stringify({ currentPassword, newPassword }),
+		}),
 };
 
 // Issues (for Darin)

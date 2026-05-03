@@ -1,7 +1,13 @@
 import { Router } from "express";
 import { authenticate, requireAuth } from "../middleware/auth";
 import { handleError } from "../utils/handleError";
-import { registerUser, loginUser, getUserProfile } from "../services/authService";
+import { 
+  registerUser, 
+  loginUser, 
+  getUserProfile, 
+  updateUserEmail, 
+  updateUserPassword 
+} from "../services/authService";
 
 export const authRouter = Router();
 
@@ -38,3 +44,20 @@ authRouter.get("/me", authenticate, requireAuth, (req, res) => {
     handleError(res, error);
   }
 });
+
+// PATCH /api/auth/me
+authRouter.patch("/me", authenticate, requireAuth, async (req, res) => {
+  try {
+    const userId = (req as any).user.id;
+    const { email, currentPassword, newPassword } = req.body;
+    if (email) {
+      res.json(updateUserEmail(userId, email));
+    } else if (currentPassword && newPassword) {
+      res.json(updateUserPassword(userId, currentPassword, newPassword));
+    } else {
+      res.status(400).json({ error: 'Provide either email or currentPassword + newPassword' });
+    }
+  } catch (error) {
+    handleError(res, error);
+  }
+})

@@ -69,3 +69,31 @@ export function getUserProfile(userId: number) {
     resolvedReports: resolved.count + resolvedLnf.count,
   };
 }
+
+export function updateUserEmail(userId: number, newEmail: string) {
+  const normalized = newEmail.trim().toLowerCase();
+  if (!normalized.endsWith('@oneonta.edu')) {
+    throw new ValidationError('Must use a valid @oneonta.edu email address');
+  }
+  const db = getDatabase();
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalized);
+  if (existing) throw new ConflictError('An account with this email already exists');
+  const result = db.prepare('UPDATE users SET email = ? WHERE id = ?').run(normalized, userId);
+  if (result.changes === 0) throw new NotFoundError('User not found');
+  return { message: 'Email updated successfully' };
+}
+
+export function updateUserPassword(userId: number, currentPassword: string, newPassword: string) {
+  if (newPassword.length < 8) {
+    throw new ValidationError('Password must be at least 8 characters long');
+  }
+  const db = getDatabase();
+  const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new NotFoundError('User not found');
+  if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+    throw new ForbiddenError('Current password is incorrect');
+  }
+  const passwordHash = bcrypt.hashSync(newPassword, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, userId);
+  return { message: 'Password updated successfully' };
+}

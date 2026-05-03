@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { API_BASE, setAuthToken } from "../../src/services/api";
+import { authAPI, setAuthToken } from "../../src/services/api";
 
 interface UserProfile {
 	email: string;
@@ -24,7 +24,7 @@ export default function ProfileScreen() {
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
-		const fetchProfile = async () => {
+		/*const fetchProfile = async () => {
 			try {
 				const token = await SecureStore.getItemAsync("auth_token");
 				const response = await fetch(`${API_BASE}/auth/me`, {
@@ -46,6 +46,16 @@ export default function ProfileScreen() {
 				}
 			} catch (error: any) {
 				Alert.alert("Network Error", error.message);
+			} finally {
+				setIsLoading(false);
+			}
+		};*/
+		const fetchProfile = async () => {
+			try {
+				const data = await authAPI.getProfile();
+				setProfile(data);
+			} catch (error: any) {
+				Alert.alert("Error", error.message);
 			} finally {
 				setIsLoading(false);
 			}
@@ -102,7 +112,7 @@ export default function ProfileScreen() {
 				</View>
 				<Text style={styles.userName}>{displayName}</Text>
 				<Text style={styles.userEmail}>{email}</Text>
-				<TouchableOpacity style={styles.editButton} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
+				<TouchableOpacity style={styles.editButton} onPress={() => router.push('/profile/edit-profile')}>
 					{/* fixing dead buttons, adding onPress functions */}
 					<Text style={styles.editButtonText}>Edit Profile</Text>
 				</TouchableOpacity>
@@ -125,12 +135,12 @@ export default function ProfileScreen() {
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Account</Text>
 
-				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/notifications')}>
 					<Text style={styles.menuItemText}>Notification Preferences</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/help-center')}>
 					<Text style={styles.menuItemText}>Privacy & Security</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
@@ -139,12 +149,12 @@ export default function ProfileScreen() {
 			<View style={styles.section}>
 				<Text style={styles.sectionTitle}>Support</Text>
 
-				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/help-center')}>
 					<Text style={styles.menuItemText}>Help Center</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert("Coming Soon", "This feature is not yet available.")}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/terms')}>
 					<Text style={styles.menuItemText}>Terms of Service</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
