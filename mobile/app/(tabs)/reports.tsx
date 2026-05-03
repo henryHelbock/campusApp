@@ -224,7 +224,7 @@ export default function ReportsScreen() {
         <TouchableOpacity onPress={fetchIssues}>
           <Text style={styles.refreshText}>↻ Refresh</Text>
         </TouchableOpacity>
-      </View>flaslist
+      </View>
 
 
       {fetchError && (

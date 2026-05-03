@@ -1,163 +1,69 @@
 import { Router, Request, Response } from 'express';
 import { authenticate, requireAuth } from '../middleware/auth';
 import { validateCampusBounds } from '../middleware/validateCampusBounds';
-import { getDatabase } from '../db/database';
+import { handleError } from '../utils/handleError';
+import {
+  getAllLostFoundItems,
+  getLostFoundItemById,
+  createLostFoundItem,
+  claimLostFoundItem,
+  resolveLostFoundItem,
+} from '../services/lostFoundService';
 
 export const lostFoundRouter = Router();
 
 lostFoundRouter.use(authenticate);
 
-// GET /api/lost-found - List lost and found items
-lostFoundRouter.get('/', (_req: Request, res: Response) => {
+// GET /api/lost-found
+lostFoundRouter.get('/', (req: Request, res: Response) => {
   try {
-    const db = getDatabase();
-    const items = db.prepare(`
-      SELECT
-        id,
-        type,
-        title,
-        description,
-        category,
-        latitude,
-        longitude,
-        reporter_id AS reporterId,
-        status,
-        created_at AS createdAt
-      FROM lost_found_items
-      WHERE status = 'active'
-      ORDER BY created_at DESC
-    `).all();
-
-    const imgStmt = db.prepare('SELECT url FROM item_images WHERE item_id = ?');
-    const result = items.map((item: any) => ({
-      ...item,
-      imageUrls: imgStmt.all(item.id).map((row: any) => row.url),
-    }));
-
-    res.json(result);
+    res.json(getAllLostFoundItems());
   } catch (error) {
-    console.error('Database error fetching lost/found items:', error);
-    res.status(500).json({ message: 'Internal server error while fetching lost/found items' });
+    handleError(res, error);
   }
 });
 
-// POST /api/lost-found - Create a lost or found item report
+// POST /api/lost-found
 lostFoundRouter.post('/', requireAuth, validateCampusBounds, (req: Request, res: Response) => {
   try {
-    const db = getDatabase();
-    const { type, title, description, category, latitude, longitude } = req.body;
-    const user = (req as any).user;
-
-    if (!type || !title || !description) {
-      res.status(400).json({ error: 'type, title, and description are required' });
-      return;
-    }
-
-    if (!['lost', 'found'].includes(type)) {
-      res.status(400).json({ error: 'type must be either lost or found' });
-      return;
-    }
-
-    const result = db.prepare(`
-      INSERT INTO lost_found_items (type, title, description, category, latitude, longitude, reporter_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(type, title, description, category || 'Other', latitude ?? null, longitude ?? null, user.id);
-
-    const created = db.prepare(`
-      SELECT
-        id, type, title, description, category,
-        latitude, longitude,
-        reporter_id AS reporterId,
-        status,
-        created_at AS createdAt
-      FROM lost_found_items WHERE id = ?
-    `).get(result.lastInsertRowid) as any;
-
-    res.status(201).json({ ...created, imageUrls: [] });
+    const item = createLostFoundItem(req.body, (req as any).user.id);
+    res.status(201).json(item);
   } catch (error) {
-    console.error('Create lost/found error:', error);
-    res.status(500).json({ error: 'Server error creating item' });
+    handleError(res, error);
   }
 });
 
-// GET /api/lost-found/:id - Get item details
+// GET /api/lost-found/:id
 lostFoundRouter.get('/:id', (req: Request, res: Response) => {
   try {
-    const db = getDatabase();
-    const item = db.prepare(`
-      SELECT id, type, title, description, category, latitude, longitude,
-        reporter_id AS reporterId, status, created_at AS createdAt
-      FROM lost_found_items WHERE id = ?
-    `).get(req.params.id);
-
-    if (!item) {
-      res.status(404).json({ error: 'Item not found' });
-      return;
-    }
-
-    const imageUrls = db.prepare('SELECT url FROM item_images WHERE item_id = ?')
-      .all(req.params.id).map((row: any) => row.url);
-
-    res.json({ ...(item as any), imageUrls });
+    const id = req.params.id as string;
+    res.json(resolveLostFoundItem(id));
   } catch (error) {
-    console.error('Get lost/found item error:', error);
-    res.status(500).json({ error: 'Server error fetching item' });
+    handleError(res, error);
   }
 });
 
-// PATCH /api/lost-found/:id/claim - Claim a found item
+// PATCH /api/lost-found/:id/claim
 lostFoundRouter.patch('/:id/claim', requireAuth, (req: Request, res: Response) => {
   try {
-    const db = getDatabase();
-    const { id } = req.params;
-    const user = (req as any).user;
-
-    const item = db.prepare('SELECT * FROM lost_found_items WHERE id = ?').get(id) as any;
-    if (!item) {
-      res.status(404).json({ error: 'Item not found' });
-      return;
-    }
-    if (item.status !== 'active') {
-      res.status(409).json({ error: `Item is already ${item.status}` });
-      return;
-    }
-    if (item.reporter_id === user.id) {
-      res.status(400).json({ error: 'You cannot claim your own item' });
-      return;
-    }
-
-      db.prepare("UPDATE lost_found_items SET status = 'claimed' WHERE id = ?").run(id);
-      res.json({ message: 'Item claimed successfully' });
+    const id = req.params.id as string;
+    res.json(resolveLostFoundItem(id));
   } catch (error) {
-    console.error('Claim lost/found error:', error);
-    res.status(500).json({ error: 'Server error claiming item' });
+    handleError(res, error);
   }
 });
 
-// PATCH /api/lost-found/:id/resolve - Mark item as resolved
+// PATCH /api/lost-found/:id/resolve
 lostFoundRouter.patch('/:id/resolve', requireAuth, (req: Request, res: Response) => {
   try {
-    const db = getDatabase();
-    const { id } = req.params;
-
-    const item = db.prepare('SELECT * FROM lost_found_items WHERE id = ?').get(id);
-    if (!item) {
-      res.status(404).json({ error: 'Item not found' });
-      return;
-    }
-
-    db.prepare(`
-      UPDATE lost_found_items SET status = 'resolved' WHERE id = ?
-    `).run(id);
-
-    res.json({ message: 'Item marked as resolved' });
+    const id = req.params.id as string;
+    res.json(resolveLostFoundItem(id));
   } catch (error) {
-    console.error('Resolve lost/found error:', error);
-    res.status(500).json({ error: 'Server error resolving item' });
+    handleError(res, error);
   }
 });
 
-// POST /api/lost-found/:id/respond - Respond to a lost report
-lostFoundRouter.post('/:id/respond', requireAuth, (_req: Request, res: Response) => {
-  res.status(501).json({ message: 'Not implemented: respond to lost report' });
+// POST /api/lsot-found/:id/respond
+lostFoundRouter.post('/:id/respond', requireAuth, (req: Request, res: Response) => {
+  res.status(501).json({ message: 'Not implemented: respond tp lost report' });
 });
