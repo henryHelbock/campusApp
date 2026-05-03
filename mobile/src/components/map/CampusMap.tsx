@@ -21,7 +21,6 @@ import {
 import type { Issue, IssueCategory, LostFoundItem } from '@campusapp/shared';
 import { issuesApi, lostFoundApi, NetworkError } from '../../services/api';
 
-// ── Demo data (used until backend is connected) ───────────────
 const DEMO_ISSUES: Issue[] = [
   { id:1, category:'Road',     severity:'Severe', description:'Icy walkway near Milne Library',    latitude:42.468010,  longitude:-75.062851, reportCount:3, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
   { id:2, category:'Water',    severity:'Mild',   description:'Drinking fountain not working IRC', latitude:42.469277, longitude:-75.063021, reportCount:1, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
@@ -32,7 +31,6 @@ const DEMO_LOST: LostFoundItem[] = [
   { id:1, type:'lost', title:'Black AirPods Case', description:'Lost near Milne Library entrance', category:'Electronics', latitude:42.4685, longitude:-75.0630, imageUrls:[], status:'active', reporterId:2, createdAt:'' },
 ];
 
-// Bubble radius scales with report count
 const bubbleRadius = (count: number) => 20 + count * 8;
 
 type FilterState = {
@@ -40,10 +38,10 @@ type FilterState = {
 };
 
 export default function CampusMap() {
-  const [issues,    setIssues]    = useState<Issue[]>([]);
-  const [lostItems, setLostItems] = useState<LostFoundItem[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [filters,   setFilters]   = useState<FilterState>({ category: 'All' });
+  const [issues,        setIssues]        = useState<Issue[]>([]);
+  const [lostItems,     setLostItems]     = useState<LostFoundItem[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [filters,       setFilters]       = useState<FilterState>({ category: 'All' });
   const [showHeatmap,   setShowHeatmap]   = useState(true);
   const [showLostFound, setShowLostFound] = useState(true);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
@@ -68,12 +66,10 @@ export default function CampusMap() {
       setFetchError(null);
     } catch (err) {
       if (err instanceof NetworkError) {
-        // Device can't reach the backend (e.g. Expo Go on a different Wi-Fi) — fall back to demo data.
         setIssues(DEMO_ISSUES);
         setLostItems(DEMO_LOST);
         setFetchError(null);
       } else {
-        // Server returned an error; keep whatever data we have and surface a message.
         setFetchError(err instanceof Error ? err.message : 'Failed to load map data');
       }
     } finally {
@@ -81,8 +77,6 @@ export default function CampusMap() {
     }
   }, []);
 
-  // Fetch on tab focus + poll every 60s while focused (Manual §4.1). Silent polls
-  // avoid flashing the loading overlay every minute.
   useFocusEffect(
     useCallback(() => {
       fetchData();
@@ -96,7 +90,6 @@ export default function CampusMap() {
     }, [fetchData])
   );
 
-  // Silent refetch when the app returns from background; prevents stale data after >60s away.
   useEffect(() => {
     const sub = AppState.addEventListener('change', next => {
       if (next === 'active') fetchData({ silent: true });
@@ -104,7 +97,6 @@ export default function CampusMap() {
     return () => sub.remove();
   }, [fetchData]);
 
-  // Manual ↻ resets the 60s clock so users don't see a second overlay flash right after tapping.
   const onManualRefresh = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     fetchData();
@@ -125,8 +117,6 @@ export default function CampusMap() {
     [lostItems]
   );
 
-  // Close popup when the selected issue is no longer in the filtered set
-  // (filter change, auto-refresh dropped the row, or status transitioned).
   useEffect(() => {
     if (selectedIssue && !filteredIssues.some(i => i.id === selectedIssue.id)) {
       setSelectedIssue(null);
@@ -136,10 +126,9 @@ export default function CampusMap() {
   return (
     <View style={styles.container}>
 
-      {/* ── Filter bar ─────────────────────────────────────── */}
+      {/* Filter bar */}
       <View style={styles.filterBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          <Text style={styles.filterLabel}>Category:</Text>
           {(['All', ...ISSUE_CATEGORIES] as (IssueCategory | 'All')[]).map(cat => (
             <TouchableOpacity
               key={cat}
@@ -154,7 +143,7 @@ export default function CampusMap() {
         </ScrollView>
       </View>
 
-      {/* ── Map ────────────────────────────────────────────── */}
+      {/* Map */}
       <MapView
         style={styles.map}
         initialRegion={mapRegion}
@@ -172,7 +161,6 @@ export default function CampusMap() {
           else setSelectedIssue(null);
         }}
       >
-        {/* Heatmap bubbles — no Marker, just Circle */}
         {showHeatmap && filteredIssues.map(issue => (
           <Circle
             key={`issue-${issue.id}`}
@@ -184,7 +172,6 @@ export default function CampusMap() {
           />
         ))}
 
-        {/* Lost item pins */}
         {showLostFound && activeLostItems.map(item => (
           <Marker
             key={`lost-${item.id}`}
@@ -196,26 +183,14 @@ export default function CampusMap() {
         ))}
       </MapView>
 
-      {/* ── Toggle controls ────────────────────────────────── */}
+      {/* Toggle controls */}
       <View style={styles.toggleRow}>
-        <TouchableOpacity
-          style={[styles.toggleBtn, showHeatmap && styles.toggleBtnActive]}
-          onPress={() => setShowHeatmap(v => !v)}
-        >
-          <Text style={[styles.toggleText, showHeatmap && styles.toggleTextActive]}>
-            Heatmap {showHeatmap ? 'on' : 'off'}
-          </Text>
+        <TouchableOpacity style={[styles.toggleBtn, showHeatmap && styles.toggleBtnActive]} onPress={() => setShowHeatmap(v => !v)}>
+          <Text style={[styles.toggleText, showHeatmap && styles.toggleTextActive]}>Heatmap</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toggleBtn, showLostFound && styles.toggleBtnActive]}
-          onPress={() => setShowLostFound(v => !v)}
-        >
-          <Text style={[styles.toggleText, showLostFound && styles.toggleTextActive]}>
-            Lost & Found {showLostFound ? 'on' : 'off'}
-          </Text>
+        <TouchableOpacity style={[styles.toggleBtn, showLostFound && styles.toggleBtnActive]} onPress={() => setShowLostFound(v => !v)}>
+          <Text style={[styles.toggleText, showLostFound && styles.toggleTextActive]}>Lost & Found</Text>
         </TouchableOpacity>
-
         <TouchableOpacity style={styles.refreshBtn} onPress={onManualRefresh}>
           <Text style={styles.refreshText}>↻</Text>
         </TouchableOpacity>
@@ -227,8 +202,9 @@ export default function CampusMap() {
         </View>
       )}
 
-      {/* ── Legend ─────────────────────────────────────────── */}
+      {/* Legend */}
       <View style={styles.legend}>
+        <Text style={styles.legendTitle}>Legend</Text>
         {SEVERITY_LEVELS.map(sev => (
           <View key={sev} style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: SEVERITY_COLORS[sev] }]} />
@@ -241,24 +217,21 @@ export default function CampusMap() {
         </View>
       </View>
 
-      {/* ── Issue detail popup ─────────────────────────────── */}
+      {/* Issue detail popup */}
       {selectedIssue && (
-        <View style={styles.popup}>
+        <View style={[styles.popup, { borderLeftColor: SEVERITY_COLORS[selectedIssue.severity] }]}>
           <View style={styles.popupHeader}>
             <Text style={styles.popupTitle}>{selectedIssue.category}</Text>
             <TouchableOpacity onPress={() => setSelectedIssue(null)}>
               <Text style={styles.popupClose}>✕</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.popupSeverity}>
-            Severity: <Text style={{ color: SEVERITY_COLORS[selectedIssue.severity] }}>
-              {selectedIssue.severity}
-            </Text>
-          </Text>
+          <View style={styles.popupSeverityRow}>
+            <View style={[styles.popupSeverityDot, { backgroundColor: SEVERITY_COLORS[selectedIssue.severity] }]} />
+            <Text style={[styles.popupSeverityText, { color: SEVERITY_COLORS[selectedIssue.severity] }]}>{selectedIssue.severity}</Text>
+          </View>
           <Text style={styles.popupDesc}>{selectedIssue.description}</Text>
-          <Text style={styles.popupMeta}>
-            {selectedIssue.reportCount} report{selectedIssue.reportCount !== 1 ? 's' : ''}
-          </Text>
+          <Text style={styles.popupMeta}>{selectedIssue.reportCount} report{selectedIssue.reportCount !== 1 ? 's' : ''}</Text>
         </View>
       )}
 
@@ -272,34 +245,36 @@ export default function CampusMap() {
 }
 
 const styles = StyleSheet.create({
-  container:       { flex: 1 },
-  map:             { flex: 1 },
-  filterBar:       { backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
-  filterScroll:    { paddingHorizontal: 12, paddingVertical: 8, gap: 6, flexDirection: 'row', alignItems: 'center' },
-  filterLabel:     { fontSize: 11, fontWeight: '600', color: '#666', marginRight: 4 },
-  chip:            { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#ccc', backgroundColor: '#fff' },
-  chipActive:      { backgroundColor: '#1A5276', borderColor: '#1A5276' },
-  chipText:        { fontSize: 11, color: '#555' },
-  chipTextActive:  { color: '#fff' },
-  toggleRow:       { position: 'absolute', top: 58, left: 10, flexDirection: 'row', gap: 6 },
-  toggleBtn:       { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#ccc' },
-  toggleBtnActive: { backgroundColor: '#1A5276', borderColor: '#1A5276' },
-  toggleText:      { fontSize: 11, color: '#555' },
-  toggleTextActive:{ color: '#fff' },
-  refreshBtn:      { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#ccc' },
-  refreshText:     { fontSize: 14, color: '#1A5276' },
-  legend:          { position: 'absolute', bottom: 80, left: 10, backgroundColor: 'rgba(255,255,255,0.93)', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#ddd' },
-  legendRow:       { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  legendDot:       { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
-  legendText:      { fontSize: 11, color: '#333' },
-  popup:           { position: 'absolute', bottom: 80, right: 10, left: 80, backgroundColor: '#fff', borderRadius: 10, padding: 14, borderWidth: 1, borderColor: '#ddd', elevation: 4 },
-  popupHeader:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  popupTitle:      { fontSize: 14, fontWeight: '600', color: '#1A3D5C' },
-  popupClose:      { fontSize: 14, color: '#999' },
-  popupSeverity:   { fontSize: 12, marginBottom: 4 },
-  popupDesc:       { fontSize: 12, color: '#555', marginBottom: 4 },
-  popupMeta:       { fontSize: 11, color: '#999' },
-  loadingOverlay:  { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center' },
-  errorBanner:     { position: 'absolute', top: 96, left: 10, right: 10, backgroundColor: '#FDEDEC', borderColor: '#E74C3C', borderWidth: 1, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
-  errorBannerText: { fontSize: 11, color: '#922B21' },
+  container:          { flex: 1 },
+  map:                { flex: 1 },
+  filterBar:          { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+  filterScroll:       { paddingHorizontal: 12, paddingVertical: 10, gap: 6, flexDirection: 'row', alignItems: 'center' },
+  chip:               { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f8f9fa' },
+  chipActive:         { backgroundColor: '#1A5276', borderColor: '#1A5276' },
+  chipText:           { fontSize: 12, color: '#555' },
+  chipTextActive:     { color: '#fff', fontWeight: '600' },
+  toggleRow:          { position: 'absolute', top: 60, left: 10, flexDirection: 'row', gap: 6 },
+  toggleBtn:          { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#ddd', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+  toggleBtnActive:    { backgroundColor: '#1A5276', borderColor: '#1A5276' },
+  toggleText:         { fontSize: 12, color: '#555', fontWeight: '500' },
+  toggleTextActive:   { color: '#fff', fontWeight: '600' },
+  refreshBtn:         { backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#ddd', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+  refreshText:        { fontSize: 16, color: '#1A5276' },
+  legend:             { position: 'absolute', bottom: 80, left: 10, backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#e0e0e0', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  legendTitle:        { fontSize: 10, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  legendRow:          { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  legendDot:          { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
+  legendText:         { fontSize: 12, color: '#333' },
+  popup:              { position: 'absolute', bottom: 80, right: 10, left: 80, backgroundColor: '#fff', borderRadius: 12, padding: 14, borderLeftWidth: 4, borderWidth: 1, borderColor: '#e0e0e0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 4 },
+  popupHeader:        { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  popupTitle:         { fontSize: 15, fontWeight: '700', color: '#1A3D5C' },
+  popupClose:         { fontSize: 16, color: '#aaa' },
+  popupSeverityRow:   { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  popupSeverityDot:   { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  popupSeverityText:  { fontSize: 12, fontWeight: '600' },
+  popupDesc:          { fontSize: 13, color: '#555', lineHeight: 18, marginBottom: 6 },
+  popupMeta:          { fontSize: 12, color: '#999' },
+  loadingOverlay:     { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center' },
+  errorBanner:        { position: 'absolute', top: 100, left: 10, right: 10, backgroundColor: '#FDEDEC', borderColor: '#E74C3C', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  errorBannerText:    { fontSize: 11, color: '#922B21' },
 });
