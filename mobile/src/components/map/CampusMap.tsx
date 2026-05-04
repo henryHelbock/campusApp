@@ -1,52 +1,26 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  AppState,
+  StyleSheet, View, Text, TouchableOpacity,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import MapView, { Circle, Marker, Region } from 'react-native-maps';
 import {
-  CAMPUS_CENTER,
-  CAMPUS_DEFAULT_ZOOM,
-  CAMPUS_BOUNDS,
-  ISSUE_CATEGORIES,
-  SEVERITY_COLORS,
-  SEVERITY_LEVELS,
+  CAMPUS_CENTER, CAMPUS_DEFAULT_ZOOM, CAMPUS_BOUNDS,
+  ISSUE_CATEGORIES, SEVERITY_COLORS, SEVERITY_LEVELS,
 } from '@campusapp/shared';
-import type { Issue, IssueCategory, LostFoundItem } from '@campusapp/shared';
-import { issuesApi, lostFoundApi, NetworkError } from '../../services/api';
-
-const DEMO_ISSUES: Issue[] = [
-  { id:1, category:'Road',     severity:'Severe', description:'Icy walkway near Milne Library',    latitude:42.468010,  longitude:-75.062851, reportCount:3, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
-  { id:2, category:'Water',    severity:'Mild',   description:'Drinking fountain not working IRC', latitude:42.469277, longitude:-75.063021, reportCount:1, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
-  { id:3, category:'Building', severity:'Large',  description:'Heating issue in Fitzelle Hall',    latitude:42.469995, longitude:-75.062918, reportCount:2, status:'active', reporterId:2, createdAt:'', updatedAt:'' },
-];
-
-const DEMO_LOST: LostFoundItem[] = [
-  { id:1, type:'lost', title:'Black AirPods Case', description:'Lost near Milne Library entrance', category:'Electronics', latitude:42.4685, longitude:-75.0630, imageUrls:[], status:'active', reporterId:2, createdAt:'' },
-];
+import type { Issue, IssueCategory } from '@campusapp/shared';
+import { useCampusMapData } from '../../hooks/useCampusMapData';
 
 const bubbleRadius = (count: number) => 20 + count * 8;
 
-type FilterState = {
-  category: IssueCategory | 'All';
-};
+type FilterState = { category: IssueCategory | 'All' };
 
 export default function CampusMap() {
-  const [issues,        setIssues]        = useState<Issue[]>([]);
-  const [lostItems,     setLostItems]     = useState<LostFoundItem[]>([]);
-  const [loading,       setLoading]       = useState(true);
+  const { issues, lostItems, loading, fetchError, onManualRefresh } = useCampusMapData();
   const [filters,       setFilters]       = useState<FilterState>({ category: 'All' });
   const [showHeatmap,   setShowHeatmap]   = useState(true);
   const [showLostFound, setShowLostFound] = useState(true);
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
-  const [fetchError,    setFetchError]    = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const mapRegion: Region = {
     latitude:  CAMPUS_CENTER.latitude,
@@ -54,61 +28,11 @@ export default function CampusMap() {
     ...CAMPUS_DEFAULT_ZOOM,
   };
 
-  const fetchData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
-    if (!silent) setLoading(true);
-    try {
-      const [issueData, lfData] = await Promise.all([
-        issuesApi.getAll(),
-        lostFoundApi.getAll(),
-      ]);
-      setIssues(issueData);
-      setLostItems(lfData);
-      setFetchError(null);
-    } catch (err) {
-      if (err instanceof NetworkError) {
-        setIssues(DEMO_ISSUES);
-        setLostItems(DEMO_LOST);
-        setFetchError(null);
-      } else {
-        setFetchError(err instanceof Error ? err.message : 'Failed to load map data');
-      }
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-      intervalRef.current = setInterval(() => fetchData({ silent: true }), 60000);
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      };
-    }, [fetchData])
-  );
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', next => {
-      if (next === 'active') fetchData({ silent: true });
-    });
-    return () => sub.remove();
-  }, [fetchData]);
-
-  const onManualRefresh = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    fetchData();
-    intervalRef.current = setInterval(() => fetchData({ silent: true }), 60000);
-  }, [fetchData]);
-
   const filteredIssues = useMemo(
-    () => issues.filter(issue => {
-      if (issue.status !== 'active') return false;
-      if (filters.category !== 'All' && issue.category !== filters.category) return false;
-      return true;
-    }),
+    () => issues.filter(issue =>
+      issue.status === 'active' &&
+      (filters.category === 'All' || issue.category === filters.category)
+    ),
     [issues, filters.category]
   );
 
@@ -135,9 +59,7 @@ export default function CampusMap() {
               style={[styles.chip, filters.category === cat && styles.chipActive]}
               onPress={() => setFilters(f => ({ ...f, category: cat }))}
             >
-              <Text style={[styles.chipText, filters.category === cat && styles.chipTextActive]}>
-                {cat}
-              </Text>
+              <Text style={[styles.chipText, filters.category === cat && styles.chipTextActive]}>{cat}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -152,13 +74,11 @@ export default function CampusMap() {
         showsScale
         onPress={(e) => {
           const { latitude, longitude } = e.nativeEvent.coordinate;
-          const tapped = filteredIssues.find(issue => {
-            const latDiff = Math.abs(issue.latitude - latitude);
-            const lngDiff = Math.abs(issue.longitude - longitude);
-            return latDiff < 0.0005 && lngDiff < 0.0005;
-          });
-          if (tapped) setSelectedIssue(tapped);
-          else setSelectedIssue(null);
+          const tapped = filteredIssues.find(issue =>
+            Math.abs(issue.latitude - latitude) < 0.0005 &&
+            Math.abs(issue.longitude - longitude) < 0.0005
+          );
+          setSelectedIssue(tapped ?? null);
         }}
       >
         {showHeatmap && filteredIssues.map(issue => (

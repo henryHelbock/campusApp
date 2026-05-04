@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import type { LostFoundItem, LostFoundType } from '@campusapp/shared';
 import { lostFoundApi } from '../../src/services/api';
+import { DateFilter, DATE_FILTER_OPTIONS, isWithinDateFilter } from '../../src/utils/dateFilters';
 
 const DEMO_ITEMS: LostFoundItem[] = [
   { id:1, type:'lost',  title:'Black AirPods Case',     description:'Lost near Milne Library entrance', category:'Electronics', latitude:42.4541, longitude:-75.0633, imageUrls:[], status:'active', reporterId:2, createdAt:'2024-03-10T14:30:00' },
@@ -15,20 +16,12 @@ const DEMO_ITEMS: LostFoundItem[] = [
 
 const ITEM_CATEGORIES = ['Electronics', 'Bags', 'Keys', 'Books', 'Clothing', 'ID / Cards', 'Other'];
 
-type DateFilter = 'All' | 'Today' | '7 days' | '30 days';
-
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const hours = Math.floor(diff / 3600000);
   if (hours < 1)  return 'Just now';
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function isWithinDateFilter(dateStr: string, filter: DateFilter): boolean {
-  if (filter === 'All') return true;
-  const ms = { 'Today': 86400000, '7 days': 604800000, '30 days': 2592000000 }[filter];
-  return Date.now() - new Date(dateStr).getTime() < ms;
 }
 
 function ItemCard({ item, onResolve, onClaim }: { item: LostFoundItem; onResolve: (id: number) => void; onClaim: (id: number) => void }) {
@@ -209,7 +202,7 @@ export default function LostFoundScreen() {
             </TouchableOpacity>
           </View>
           <View style={styles.modalContent}>
-            {(['All', 'Today', '7 days', '30 days'] as DateFilter[]).map(d => (
+            {(DATE_FILTER_OPTIONS).map(d => (
               <TouchableOpacity
                 key={d}
                 style={[styles.dateOption, dateFilter === d && styles.dateOptionActive]}
