@@ -1,9 +1,19 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { TouchableOpacity, Text } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
+function BackButton() {
+  const router = useRouter();
+  return (
+    <TouchableOpacity onPress={() => router.back()} style={{ paddingLeft: 4 }}>
+      <Text style={{ color: '#86c1ff', fontSize: 17 }}>Back</Text>
+    </TouchableOpacity>
+  );
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -18,6 +28,11 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="auth/login" options={{ title: 'Sign In', presentation: 'modal' }} />
         <Stack.Screen name="report/new" options={{ title: 'New Report', presentation: 'modal' }} />
+        <Stack.Screen name="profile/edit-profile" options={{ title: 'Edit Profile', headerLeft: () => <BackButton /> }} />
+        <Stack.Screen name="profile/notifications" options={{ title: 'Notifications', headerLeft: () => <BackButton /> }} />
+        <Stack.Screen name="profile/privacy-security" options={{ title: 'Privacy & Security', headerLeft: () => <BackButton /> }} />
+        <Stack.Screen name="profile/help-center" options={{ title: 'Help Center', headerLeft: () => <BackButton /> }} />
+        <Stack.Screen name="profile/terms" options={{ title: 'Terms of Service', headerLeft: () => <BackButton /> }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

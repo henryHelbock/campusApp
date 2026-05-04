@@ -3,9 +3,10 @@ import {
     ScrollView, View, Text, TextInput,
     TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+//import { Stack, useRouter } from 'expo-router';
 import { authAPI } from '../../src/services/api';
-<Stack.Screen options={{ title: 'Privacy & Security', headerBackTitle: 'Back' }} />
+//<Stack.Screen options={{ title: 'Privacy & Security' }} />
+import { useRouter } from 'expo-router';
 
 export default function PrivacySecurityScreen() {
     const router = useRouter();
