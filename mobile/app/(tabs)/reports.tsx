@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { ISSUE_CATEGORIES, SEVERITY_LEVELS, SEVERITY_COLORS } from '@campusapp/shared';
 import type { Issue, IssueCategory, IssueSeverity, IssueFilters, IssueStatus } from '@campusapp/shared';
 import { issuesApi, NetworkError } from '../../src/services/api';
+import { DateFilter, DATE_FILTER_OPTIONS, dateFilterToStartDate } from '../../src/utils/dateFilters';
 
 const DEMO_ISSUES: Issue[] = [
   { id:1, category:'Road',     severity:'Severe', description:'Icy walkway near Milne Library',    latitude:42.454,  longitude:-75.0635, reportCount:3, status:'active', reporterId:2, createdAt:'2024-03-10T14:30:00', updatedAt:'' },
@@ -14,22 +15,12 @@ const DEMO_ISSUES: Issue[] = [
   { id:3, category:'Building', severity:'Large',  description:'Heating issue in Fitzelle Hall',    latitude:42.4537, longitude:-75.0655, reportCount:2, status:'active', reporterId:2, createdAt:'2024-03-08T08:00:00', updatedAt:'' },
 ];
 
-type DateFilter = 'All' | 'Today' | '7 days' | '30 days';
-const DATE_FILTER_MS: Record<Exclude<DateFilter, 'All'>, number> = {
-  'Today': 86400000, '7 days': 604800000, '30 days': 2592000000,
-};
-
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const hours = Math.floor(diff / 3600000);
   if (hours < 1)  return 'Just now';
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function dateFilterToStartDate(filter: DateFilter): string | undefined {
-  if (filter === 'All') return undefined;
-  return new Date(Date.now() - DATE_FILTER_MS[filter]).toISOString();
 }
 
 function IssueCard({ issue, onResolve }: { issue: Issue; onResolve: (id: number) => void }) {
@@ -190,7 +181,7 @@ export default function ReportsScreen() {
 
             <Text style={styles.filterGroupLabel}>Date Range</Text>
             <View style={styles.chipWrap}>
-              {(['All', 'Today', '7 days', '30 days'] as DateFilter[]).map(d => (
+              {(DATE_FILTER_OPTIONS).map(d => (
                 <TouchableOpacity key={d} style={[styles.chip, dateFilter === d && styles.chipActive]} onPress={() => setDateFilter(d)}>
                   <Text style={[styles.chipText, dateFilter === d && styles.chipTextActive]}>{d}</Text>
                 </TouchableOpacity>

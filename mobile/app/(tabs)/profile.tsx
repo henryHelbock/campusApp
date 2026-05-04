@@ -140,7 +140,7 @@ export default function ProfileScreen() {
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
 
-				<TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/help-center')}>
+				<TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/privacy-security')}>
 					<Text style={styles.menuItemText}>Privacy & Security</Text>
 					<Text style={styles.chevron}>›</Text>
 				</TouchableOpacity>
