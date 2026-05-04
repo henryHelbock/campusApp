@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, View, Text, Switch, StyleSheet } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { Stack, useRouter } from 'expo-router';
-<Stack.Screen options={{ title: 'Help Center', headerBackTitle: 'Back' }} />
+//import { Stack, useRouter } from 'expo-router';
+//<Stack.Screen options={{ title: 'Notifications' }} />
 
 const PREFS_KEY = 'notification_prefs';
 

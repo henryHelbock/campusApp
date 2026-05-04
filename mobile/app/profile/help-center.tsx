@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
-import { Stack, useRouter } from 'expo-router'
-<Stack.Screen options={{ title: 'Help Center', headerBackTitle: 'Back' }} />
+//import { Stack, useRouter } from 'expo-router'
+//<Stack.Screen options={{ title: 'Help Center' }} />
 
 export default function HelpCenterScreen() {
     return (

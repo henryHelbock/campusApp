@@ -1,7 +1,8 @@
 import React from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
-<Stack.Screen options={{ title: 'Terms of Service', headerBackTitle: 'Back' }} />
+//import { Stack, useRouter } from 'expo-router';
+//<Stack.Screen options={{ title: 'Terms of Service' }} />
+
 
 export default function TermsScreen() {
     return (
