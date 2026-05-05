@@ -1,7 +1,8 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { TouchableOpacity, Text } from 'react-native';
+import { TouchableOpacity, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -9,7 +10,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 function BackButton() {
   const router = useRouter();
   return (
-    <TouchableOpacity onPress={() => router.back()} style={{ paddingLeft: 4 }}>
+    <TouchableOpacity
+      onPress={() => router.back()}
+      style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 4, paddingRight: 12 }}
+    >
+      <Ionicons name="chevron-back" size={28} color="#86c1ff" />
       <Text style={{ color: '#86c1ff', fontSize: 17 }}>Back</Text>
     </TouchableOpacity>
   );
